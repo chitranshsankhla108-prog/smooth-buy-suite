@@ -1,10 +1,20 @@
-import { Link } from "@tanstack/react-router";
-import { ShoppingCart, Zap } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ShoppingCart, Zap, LayoutDashboard, LogOut, User } from "lucide-react";
 import { cartStore, useCart, cartTotals } from "@/lib/cart-store";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 export function SiteHeader() {
   const { items } = useCart();
   const { itemCount } = cartTotals(items);
+  const { isAuthenticated, isAdmin, signOut, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Signed out");
+    navigate({ to: "/" });
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
@@ -25,29 +35,53 @@ export function SiteHeader() {
           <Link to="/" className="transition-colors hover:text-foreground">
             Shop
           </Link>
-          <a className="transition-colors hover:text-foreground" href="#categories">
-            Categories
-          </a>
-          <a className="transition-colors hover:text-foreground" href="#trust">
-            B2B
-          </a>
           <Link to="/checkout" className="transition-colors hover:text-foreground">
             Checkout
           </Link>
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 font-semibold text-primary-deep transition-colors hover:bg-primary-soft/70"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Dashboard
+            </Link>
+          )}
         </nav>
 
-        <button
-          onClick={() => cartStore.openDrawer()}
-          className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium shadow-soft transition-all hover:border-border-strong hover:bg-surface-hover"
-        >
-          <ShoppingCart className="h-4 w-4" />
-          <span className="hidden sm:inline">Cart</span>
-          {itemCount > 0 && (
-            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-              {itemCount}
-            </span>
+        <div className="flex items-center gap-2">
+          {isAuthenticated ? (
+            <button
+              onClick={handleSignOut}
+              className="hidden items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-soft transition-all hover:border-border-strong hover:text-foreground sm:inline-flex"
+              title={user?.email ?? ""}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
+          ) : (
+            <Link
+              to="/auth"
+              className="hidden items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-soft transition-all hover:border-border-strong hover:text-foreground sm:inline-flex"
+            >
+              <User className="h-3.5 w-3.5" />
+              Sign in
+            </Link>
           )}
-        </button>
+
+          <button
+            onClick={() => cartStore.openDrawer()}
+            className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium shadow-soft transition-all hover:border-border-strong hover:bg-surface-hover"
+          >
+            <ShoppingCart className="h-4 w-4" />
+            <span className="hidden sm:inline">Cart</span>
+            {itemCount > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                {itemCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </header>
   );

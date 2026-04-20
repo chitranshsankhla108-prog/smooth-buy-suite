@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Truck, Wrench, Star, ShoppingCart, Building2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
-import { formatINR, type Product } from "@/lib/catalog";
+import { formatINR, type Product } from "@/lib/products-api";
 
 type Props = {
   product: Product;
@@ -14,10 +14,17 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
   const [compare, setCompare] = useState(false);
   const [added, setAdded] = useState(false);
 
-  const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+  const isBulk =
+    product.bulkPrice != null &&
+    product.bulkMinQty != null &&
+    qty >= product.bulkMinQty;
+  const effective = isBulk ? product.bulkPrice! : product.price;
+  const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
+  const outOfStock = product.stock === 0;
 
   const handleAdd = () => {
-    cartStore.add(product.id, qty);
+    if (outOfStock) return;
+    cartStore.add(product, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };
@@ -29,7 +36,6 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
         "hover:-translate-y-1 hover:border-border-strong hover:shadow-elevated",
       )}
     >
-      {/* Image area */}
       <div className="relative aspect-square overflow-hidden bg-surface">
         <img
           src={product.image}
@@ -46,7 +52,12 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           </span>
         )}
 
-        {/* Compare checkbox */}
+        {outOfStock && (
+          <span className="absolute left-3 bottom-3 inline-flex items-center rounded-full bg-destructive px-2.5 py-1 text-[11px] font-semibold text-destructive-foreground shadow-soft">
+            Out of stock
+          </span>
+        )}
+
         <label
           className={cn(
             "absolute right-3 top-3 inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-[11px] font-medium backdrop-blur-md transition-all",
@@ -73,7 +84,6 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
         </label>
       </div>
 
-      {/* Content */}
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -90,24 +100,24 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           {product.name}
         </h3>
 
-        {/* Price */}
         <div>
           <div className="flex items-baseline gap-2">
             <span className="text-xl font-semibold tracking-tight text-foreground">
-              {formatINR(product.price)}
+              {formatINR(effective)}
             </span>
             <span className="text-xs text-muted-foreground line-through">
               {formatINR(product.mrp)}
             </span>
           </div>
-          {product.bulkAvailable && qty > 10 && (
+          {product.bulkAvailable && product.bulkMinQty && (
             <p className="mt-0.5 text-[11px] font-medium text-primary">
-              Bulk pricing available · save up to 18%
+              {isBulk
+                ? `Bulk price applied (${product.bulkMinQty}+ units)`
+                : `Bulk pricing from ${product.bulkMinQty} units`}
             </p>
           )}
         </div>
 
-        {/* Trust badges */}
         <div className="flex flex-wrap gap-1.5 text-[11px]">
           {product.fastDelivery && (
             <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-muted-foreground">
@@ -121,7 +131,6 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           )}
         </div>
 
-        {/* Qty selector for bulk demo */}
         {product.bulkAvailable && (
           <div className="flex items-center justify-between rounded-lg bg-surface px-2 py-1.5">
             <span className="text-[11px] font-medium text-muted-foreground">Qty</span>
@@ -135,7 +144,7 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
               </button>
               <span className="w-7 text-center text-sm font-semibold tabular-nums">{qty}</span>
               <button
-                onClick={() => setQty(qty + 1)}
+                onClick={() => setQty(Math.min(product.stock || 999, qty + 1))}
                 className="flex h-6 w-6 items-center justify-center rounded-md bg-card text-muted-foreground shadow-soft transition-colors hover:text-foreground"
                 aria-label="Increase quantity"
               >
@@ -145,12 +154,12 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           </div>
         )}
 
-        {/* Actions */}
         <div className="mt-auto grid grid-cols-2 gap-2 pt-1">
           <button
             onClick={handleAdd}
+            disabled={outOfStock}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-200",
+              "inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50",
               added
                 ? "bg-success text-success-foreground"
                 : "bg-gradient-primary text-primary-foreground shadow-button hover:brightness-110 active:scale-[0.98]",

@@ -1,15 +1,26 @@
 import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { X, Plus, Minus, Trash2, AlertTriangle, Sparkles, ArrowRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  X,
+  Plus,
+  Minus,
+  Trash2,
+  AlertTriangle,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cartStore, useCart, cartTotals } from "@/lib/cart-store";
-import { getProduct, formatINR, PRODUCTS } from "@/lib/catalog";
+import { cartStore, useCart, cartTotals, effectivePrice } from "@/lib/cart-store";
+import { formatINR, productsQueryOptions } from "@/lib/products-api";
 
 export function CartDrawer() {
   const { items, drawerOpen } = useCart();
   const { subtotal, savings, itemCount } = cartTotals(items);
 
-  // Lock scroll when open
+  // Fetch products for cross-sell suggestions
+  const { data: allProducts = [] } = useQuery(productsQueryOptions());
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.body.style.overflow = drawerOpen ? "hidden" : "";
@@ -18,20 +29,18 @@ export function CartDrawer() {
     };
   }, [drawerOpen]);
 
-  // Cross-sell: collect suggestions from items in cart, exclude items already in cart
   const inCartIds = new Set(items.map((i) => i.product.id));
   const suggestionIds = Array.from(
     new Set(items.flatMap((i) => i.product.crossSellIds ?? [])),
   ).filter((id) => !inCartIds.has(id));
   const suggestions = suggestionIds
-    .map((id) => getProduct(id))
-    .filter((p): p is NonNullable<ReturnType<typeof getProduct>> => Boolean(p))
+    .map((id) => allProducts.find((p) => p.id === id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
     .slice(0, 2);
 
-  // Default fill suggestions when cart has items but no cross-sells
   const fallbackSuggestions =
     items.length > 0 && suggestions.length === 0
-      ? PRODUCTS.filter((p) => !inCartIds.has(p.id)).slice(0, 2)
+      ? allProducts.filter((p) => !inCartIds.has(p.id)).slice(0, 2)
       : [];
 
   const finalSuggestions = suggestions.length > 0 ? suggestions : fallbackSuggestions;
@@ -40,7 +49,6 @@ export function CartDrawer() {
 
   return (
     <>
-      {/* Overlay */}
       <div
         onClick={() => cartStore.closeDrawer()}
         className={cn(
@@ -50,7 +58,6 @@ export function CartDrawer() {
         aria-hidden="true"
       />
 
-      {/* Drawer */}
       <aside
         className={cn(
           "fixed right-0 top-0 z-50 flex h-dvh w-full max-w-md flex-col bg-background shadow-elevated transition-transform duration-300 ease-out sm:rounded-l-3xl",
@@ -58,7 +65,6 @@ export function CartDrawer() {
         )}
         aria-label="Shopping cart"
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-5">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Your Cart</h2>
@@ -75,7 +81,6 @@ export function CartDrawer() {
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
@@ -95,83 +100,86 @@ export function CartDrawer() {
             </div>
           ) : (
             <div className="space-y-5">
-              {/* Heavy item alert */}
               {hasHeavy && (
                 <div className="flex gap-3 rounded-2xl border border-warning/30 bg-warning/10 p-3.5">
                   <AlertTriangle className="h-4 w-4 flex-shrink-0 text-warning" />
                   <div className="text-[12px] leading-snug">
                     <p className="font-semibold text-warning-foreground">Heavy Item</p>
                     <p className="text-muted-foreground">
-                      One or more items require specialized handling for safe delivery. Allow
-                      2–4 extra days.
+                      One or more items require specialized handling for safe delivery.
+                      Allow 2–4 extra days.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Items */}
               <ul className="space-y-4">
-                {items.map(({ product, qty }) => (
-                  <li
-                    key={product.id}
-                    className="flex gap-3 rounded-2xl border border-border bg-card p-3"
-                  >
-                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-surface">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        loading="lazy"
-                        className="h-full w-full object-contain p-1.5"
-                      />
-                    </div>
-                    <div className="flex flex-1 flex-col">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                            {product.brand}
-                          </p>
-                          <p className="line-clamp-2 text-sm font-medium leading-snug">
-                            {product.name}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => cartStore.remove(product.id)}
-                          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          aria-label="Remove item"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                {items.map((item) => {
+                  const { product, qty } = item;
+                  const price = effectivePrice(item);
+                  return (
+                    <li
+                      key={product.id}
+                      className="flex gap-3 rounded-2xl border border-border bg-card p-3"
+                    >
+                      <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-surface">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          loading="lazy"
+                          className="h-full w-full object-contain p-1.5"
+                        />
                       </div>
-                      <div className="mt-auto flex items-center justify-between pt-2">
-                        <div className="inline-flex items-center rounded-lg bg-surface">
+                      <div className="flex flex-1 flex-col">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                              {product.brand}
+                            </p>
+                            <p className="line-clamp-2 text-sm font-medium leading-snug">
+                              {product.name}
+                            </p>
+                          </div>
                           <button
-                            onClick={() => cartStore.setQty(product.id, qty - 1)}
-                            className="flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
-                            aria-label="Decrease"
+                            onClick={() => cartStore.remove(product.id)}
+                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Remove item"
                           >
-                            <Minus className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
-                          <span className="w-7 text-center text-sm font-semibold tabular-nums">
-                            {qty}
+                        </div>
+                        <div className="mt-auto flex items-center justify-between pt-2">
+                          <div className="inline-flex items-center rounded-lg bg-surface">
+                            <button
+                              onClick={() => cartStore.setQty(product.id, qty - 1)}
+                              className="flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                              aria-label="Decrease"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-7 text-center text-sm font-semibold tabular-nums">
+                              {qty}
+                            </span>
+                            <button
+                              onClick={() =>
+                                cartStore.setQty(product.id, Math.min(product.stock, qty + 1))
+                              }
+                              className="flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                              aria-label="Increase"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <span className="text-sm font-semibold tabular-nums">
+                            {formatINR(price * qty)}
                           </span>
-                          <button
-                            onClick={() => cartStore.setQty(product.id, qty + 1)}
-                            className="flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
-                            aria-label="Increase"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
                         </div>
-                        <span className="text-sm font-semibold tabular-nums">
-                          {formatINR(product.price * qty)}
-                        </span>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
 
-              {/* Cross-sell */}
               {finalSuggestions.length > 0 && (
                 <div className="rounded-2xl border border-primary/20 bg-primary-soft/30 p-4">
                   <div className="mb-3 flex items-center gap-1.5">
@@ -201,7 +209,7 @@ export function CartDrawer() {
                           </p>
                         </div>
                         <button
-                          onClick={() => cartStore.add(p.id)}
+                          onClick={() => cartStore.add(p)}
                           className="flex-shrink-0 rounded-lg border border-primary/40 bg-card px-3 py-1.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary-soft"
                         >
                           Add
@@ -215,7 +223,6 @@ export function CartDrawer() {
           )}
         </div>
 
-        {/* Footer */}
         {items.length > 0 && (
           <div className="border-t border-border bg-surface/50 px-6 py-5">
             {savings > 0 && (
