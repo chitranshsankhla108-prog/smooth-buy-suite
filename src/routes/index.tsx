@@ -1,9 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { ShieldCheck, Truck, Wrench, Building2, Sparkles } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
-import { PRODUCTS, type Category } from "@/lib/catalog";
+import {
+  productsQueryOptions,
+  type Product,
+} from "@/lib/products-api";
 import { cn } from "@/lib/utils";
+
+type CategoryFilter = "All" | Product["category"];
+const CATEGORIES: CategoryFilter[] = ["All", "Power", "Security", "Solar", "Appliances"];
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,20 +23,20 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  loader: ({ context: { queryClient } }) =>
+    queryClient.ensureQueryData(productsQueryOptions()),
   component: HomePage,
 });
 
-const CATEGORIES: ("All" | Category)[] = ["All", "Power", "Security", "Solar", "Appliances"];
-
 function HomePage() {
-  const [active, setActive] = useState<(typeof CATEGORIES)[number]>("All");
+  const { data: products } = useSuspenseQuery(productsQueryOptions());
+  const [active, setActive] = useState<CategoryFilter>("All");
 
   const visible =
-    active === "All" ? PRODUCTS : PRODUCTS.filter((p) => p.category === active);
+    active === "All" ? products : products.filter((p) => p.category === active);
 
   return (
     <main>
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-border bg-gradient-soft">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
@@ -89,29 +96,12 @@ function HomePage() {
               </dl>
             </div>
 
-            {/* Trust card cluster */}
             <div id="trust" className="grid grid-cols-2 gap-3 sm:gap-4">
               {[
-                {
-                  icon: Truck,
-                  title: "Fast Delivery",
-                  body: "2–4 day shipping in metros",
-                },
-                {
-                  icon: Wrench,
-                  title: "Installation",
-                  body: "Certified technicians on-site",
-                },
-                {
-                  icon: ShieldCheck,
-                  title: "Genuine warranty",
-                  body: "Brand-backed, no fakes",
-                },
-                {
-                  icon: Building2,
-                  title: "Bulk pricing",
-                  body: "Tier discounts above 10 units",
-                },
+                { icon: Truck, title: "Fast Delivery", body: "2–4 day shipping in metros" },
+                { icon: Wrench, title: "Installation", body: "Certified technicians on-site" },
+                { icon: ShieldCheck, title: "Genuine warranty", body: "Brand-backed, no fakes" },
+                { icon: Building2, title: "Bulk pricing", body: "Tier discounts above 10 units" },
               ].map(({ icon: Icon, title, body }) => (
                 <div
                   key={title}
@@ -129,7 +119,6 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Catalog */}
       <section id="catalog" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -144,7 +133,6 @@ function HomePage() {
             </p>
           </div>
 
-          {/* Filter pills */}
           <div className="flex flex-wrap gap-2">
             {CATEGORIES.map((c) => (
               <button
@@ -174,7 +162,6 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Footer band */}
       <footer className="border-t border-border bg-surface/60">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
           <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
@@ -185,18 +172,10 @@ function HomePage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-5 text-xs text-muted-foreground">
-              <a className="hover:text-foreground" href="#">
-                Privacy
-              </a>
-              <a className="hover:text-foreground" href="#">
-                Terms
-              </a>
-              <a className="hover:text-foreground" href="#">
-                Returns
-              </a>
-              <a className="hover:text-foreground" href="#">
-                Contact
-              </a>
+              <a className="hover:text-foreground" href="#">Privacy</a>
+              <a className="hover:text-foreground" href="#">Terms</a>
+              <a className="hover:text-foreground" href="#">Returns</a>
+              <a className="hover:text-foreground" href="#">Contact</a>
             </div>
           </div>
         </div>
