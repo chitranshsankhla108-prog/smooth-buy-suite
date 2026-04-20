@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { PRODUCTS, type Product } from "./catalog";
+import type { Product } from "./products-api";
 
 export type CartItem = { product: Product; qty: number };
 
@@ -26,13 +26,11 @@ export const cartStore = {
   getSnapshot() {
     return state;
   },
-  add(productId: string, qty = 1) {
-    const product = PRODUCTS.find((p) => p.id === productId);
-    if (!product) return;
-    const existing = state.items.find((i) => i.product.id === productId);
+  add(product: Product, qty = 1) {
+    const existing = state.items.find((i) => i.product.id === product.id);
     const items = existing
       ? state.items.map((i) =>
-          i.product.id === productId ? { ...i, qty: i.qty + qty } : i,
+          i.product.id === product.id ? { ...i, qty: i.qty + qty } : i,
         )
       : [...state.items, { product, qty }];
     setState({ items, drawerOpen: true });
@@ -67,10 +65,24 @@ export function useCart() {
   );
 }
 
+const effectivePrice = (item: CartItem) => {
+  const { product, qty } = item;
+  if (
+    product.bulkPrice != null &&
+    product.bulkMinQty != null &&
+    qty >= product.bulkMinQty
+  ) {
+    return product.bulkPrice;
+  }
+  return product.price;
+};
+
 export const cartTotals = (items: CartItem[]) => {
-  const subtotal = items.reduce((s, i) => s + i.product.price * i.qty, 0);
+  const subtotal = items.reduce((s, i) => s + effectivePrice(i) * i.qty, 0);
   const mrpTotal = items.reduce((s, i) => s + i.product.mrp * i.qty, 0);
   const savings = mrpTotal - subtotal;
   const itemCount = items.reduce((s, i) => s + i.qty, 0);
   return { subtotal, mrpTotal, savings, itemCount };
 };
+
+export { effectivePrice };

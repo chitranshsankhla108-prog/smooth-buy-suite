@@ -1,27 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import {
-  Check,
-  CreditCard,
-  Lock,
-  MapPin,
-  ShieldCheck,
-  Truck,
-  Wrench,
-  ArrowRight,
-} from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Check, Lock, MapPin, Wrench, ArrowRight, Upload, Loader2, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { useCart, cartTotals } from "@/lib/cart-store";
-import { formatINR } from "@/lib/catalog";
+import { useCart, cartTotals, cartStore, effectivePrice } from "@/lib/cart-store";
+import { formatINR, paymentSettingsQueryOptions } from "@/lib/products-api";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
     meta: [
       { title: "Checkout — Voltzo" },
-      {
-        name: "description",
-        content: "Complete your order with shipping, installation and secure payment.",
-      },
+      { name: "description", content: "Complete your order with shipping and payment." },
     ],
   }),
   component: CheckoutPage,
@@ -29,15 +22,47 @@ export const Route = createFileRoute("/checkout")({
 
 const STEPS = ["Info", "Shipping", "Payment"] as const;
 type Step = (typeof STEPS)[number];
-
 const INSTALL_FEE = 499;
+
+const infoSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().min(7).max(20),
+});
+const shipSchema = z.object({
+  address: z.string().trim().min(5).max(255),
+  city: z.string().trim().min(1).max(100),
+  state: z.string().trim().min(1).max(100),
+  pincode: z.string().trim().min(4).max(10),
+  landmark: z.string().max(100).optional(),
+});
 
 function CheckoutPage() {
   const { items } = useCart();
   const { subtotal, savings } = cartTotals(items);
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  const { data: paySettings } = useQuery(paymentSettingsQueryOptions());
+
   const [step, setStep] = useState<Step>("Info");
   const [installation, setInstallation] = useState(true);
   const [shipping, setShipping] = useState<"standard" | "express">("standard");
+  const [info, setInfo] = useState({
+    name: "",
+    email: user?.email ?? "",
+    phone: "",
+  });
+  const [ship, setShip] = useState({
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    landmark: "",
+  });
+  const [method, setMethod] = useState<"upi_qr" | "paytm" | "bank_transfer" | "cod">("upi_qr");
+  const [paymentRef, setPaymentRef] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const shippingFee = shipping === "express" ? 299 : 0;
   const installFee = installation ? INSTALL_FEE : 0;
@@ -47,18 +72,90 @@ function CheckoutPage() {
   const stepIndex = STEPS.indexOf(step);
 
   const goNext = () => {
+    if (step === "Info") {
+      const r = infoSchema.safeParse(info);
+      if (!r.success) {
+        toast.error(r.error.issues[0]?.message ?? "Please fill all fields");
+        return;
+      }
+    }
+    if (step === "Shipping") {
+      const r = shipSchema.safeParse(ship);
+      if (!r.success) {
+        toast.error(r.error.issues[0]?.message ?? "Please fill all fields");
+        return;
+      }
+    }
     const next = STEPS[stepIndex + 1];
     if (next) setStep(next);
   };
-  const goPrev = () => {
-    const prev = STEPS[stepIndex - 1];
-    if (prev) setStep(prev);
+
+  const handlePlaceOrder = async () => {
+    if (!isAuthenticated) {
+      toast.error("Please sign in to place an order");
+      navigate({ to: "/auth", search: { redirect: "/checkout" } } as never);
+      return;
+    }
+    if (items.length === 0) return;
+    if (method !== "cod" && !proofFile && !paymentRef) {
+      toast.error("Please upload payment proof or enter a reference number");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { data: orderId, error } = await supabase.rpc("place_order", {
+        _customer_name: info.name,
+        _customer_email: info.email,
+        _customer_phone: info.phone,
+        _shipping_address: ship.address,
+        _shipping_city: ship.city,
+        _shipping_state: ship.state,
+        _shipping_pincode: ship.pincode,
+        _shipping_landmark: ship.landmark || "",
+        _shipping_speed: shipping,
+        _installation: installation,
+        _payment_method: method,
+        _items: items.map((i) => ({ product_id: i.product.id, qty: i.qty })),
+      });
+      if (error) throw error;
+
+      // Upload payment proof if any
+      let proofUrl: string | null = null;
+      if (proofFile && user) {
+        const path = `${user.id}/${orderId}-${Date.now()}-${proofFile.name}`;
+        const { error: upErr } = await supabase.storage
+          .from("payment-proofs")
+          .upload(path, proofFile);
+        if (!upErr) proofUrl = path;
+      }
+
+      // Update order with proof + reference, set status
+      if (method !== "cod") {
+        await supabase
+          .from("orders")
+          .update({
+            payment_reference: paymentRef || null,
+            payment_proof_url: proofUrl,
+            status: "awaiting_verification",
+          })
+          .eq("id", orderId as string);
+      }
+
+      cartStore.clear();
+      toast.success("Order placed successfully!");
+      navigate({ to: "/orders" } as never);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to place order";
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <main className="bg-gradient-soft">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
-        {/* Top bar */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -68,38 +165,63 @@ function CheckoutPage() {
               Complete your order
             </h1>
           </div>
-          <Link
-            to="/"
-            className="hidden text-sm font-medium text-muted-foreground hover:text-foreground sm:inline-flex"
-          >
+          <Link to="/" className="hidden text-sm font-medium text-muted-foreground hover:text-foreground sm:inline-flex">
             ← Continue shopping
           </Link>
         </div>
 
-        {/* Stepper */}
         <Stepper step={step} setStep={setStep} />
 
         {items.length === 0 ? (
           <EmptyCart />
         ) : (
           <div className="mt-10 grid gap-8 lg:grid-cols-[3fr,2fr] lg:items-start">
-            {/* LEFT 60% */}
             <section className="space-y-6">
-              {step === "Info" && <InfoStep />}
+              {!isAuthenticated && (
+                <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" />
+                  <div>
+                    <p className="font-semibold">Sign in to place your order</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      You can browse the steps below.{" "}
+                      <Link to="/auth" search={{ redirect: "/checkout" }} className="font-semibold text-primary underline">
+                        Sign in or create an account
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {step === "Info" && <InfoStep info={info} setInfo={setInfo} />}
               {step === "Shipping" && (
                 <ShippingStep
+                  ship={ship}
+                  setShip={setShip}
                   installation={installation}
                   setInstallation={setInstallation}
                   shipping={shipping}
                   setShipping={setShipping}
                 />
               )}
-              {step === "Payment" && <PaymentStep />}
+              {step === "Payment" && (
+                <PaymentStep
+                  method={method}
+                  setMethod={setMethod}
+                  paymentRef={paymentRef}
+                  setPaymentRef={setPaymentRef}
+                  proofFile={proofFile}
+                  setProofFile={setProofFile}
+                  settings={paySettings}
+                  total={total}
+                />
+              )}
 
-              {/* Step nav */}
               <div className="flex items-center justify-between gap-3 pt-2">
                 <button
-                  onClick={goPrev}
+                  onClick={() => {
+                    const prev = STEPS[stepIndex - 1];
+                    if (prev) setStep(prev);
+                  }}
                   disabled={stepIndex === 0}
                   className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
                 >
@@ -113,12 +235,18 @@ function CheckoutPage() {
                     Continue <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 ) : (
-                  <PlaceOrderButton total={total} />
+                  <button
+                    onClick={handlePlaceOrder}
+                    disabled={submitting}
+                    className="inline-flex items-center gap-3 rounded-full bg-gradient-primary px-7 py-3.5 text-sm font-semibold text-primary-foreground shadow-button transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+                  >
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                    Place order · {formatINR(total)}
+                  </button>
                 )}
               </div>
             </section>
 
-            {/* RIGHT 40% — Sticky glass summary */}
             <aside className="lg:sticky lg:top-24">
               <OrderSummary
                 items={items}
@@ -128,8 +256,6 @@ function CheckoutPage() {
                 installFee={installFee}
                 tax={tax}
                 total={total}
-                installation={installation}
-                shipping={shipping}
               />
             </aside>
           </div>
@@ -139,7 +265,6 @@ function CheckoutPage() {
   );
 }
 
-/* ---------- Stepper ---------- */
 function Stepper({ step, setStep }: { step: Step; setStep: (s: Step) => void }) {
   const idx = STEPS.indexOf(step);
   return (
@@ -176,12 +301,7 @@ function Stepper({ step, setStep }: { step: Step; setStep: (s: Step) => void }) 
               </span>
             </button>
             {i < STEPS.length - 1 && (
-              <span
-                className={cn(
-                  "h-px flex-1 transition-colors",
-                  done ? "bg-primary/40" : "bg-border",
-                )}
-              />
+              <span className={cn("h-px flex-1 transition-colors", done ? "bg-primary/40" : "bg-border")} />
             )}
           </li>
         );
@@ -190,51 +310,59 @@ function Stepper({ step, setStep }: { step: Step; setStep: (s: Step) => void }) 
   );
 }
 
-/* ---------- Inputs ---------- */
 const inputCls =
   "w-full rounded-lg bg-input px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:bg-card focus:ring-2 focus:ring-primary/30";
 
-function Field({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={cn("block", className)}>
-      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
+      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   );
 }
 
-/* ---------- Step contents ---------- */
-function InfoStep() {
+function Card({
+  title,
+  subtitle,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: typeof MapPin;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <div className="mb-4 flex items-start gap-3">
+        {Icon && (
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+            <Icon className="h-4 w-4" />
+          </div>
+        )}
+        <div>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function InfoStep({ info, setInfo }: { info: { name: string; email: string; phone: string }; setInfo: (v: typeof info) => void }) {
   return (
     <Card title="Contact Information" subtitle="We'll send order updates to your email">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name" className="sm:col-span-2">
-          <input className={inputCls} placeholder="Aarav Sharma" defaultValue="Aarav Sharma" />
+          <input className={inputCls} value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} placeholder="Aarav Sharma" />
         </Field>
         <Field label="Email">
-          <input
-            type="email"
-            className={inputCls}
-            placeholder="you@example.com"
-            defaultValue="aarav@voltzo.in"
-          />
+          <input type="email" className={inputCls} value={info.email} onChange={(e) => setInfo({ ...info, email: e.target.value })} placeholder="you@example.com" />
         </Field>
         <Field label="Mobile">
-          <input
-            className={inputCls}
-            placeholder="+91 98XXX XXXXX"
-            defaultValue="+91 98765 43210"
-          />
+          <input className={inputCls} value={info.phone} onChange={(e) => setInfo({ ...info, phone: e.target.value })} placeholder="+91 98XXX XXXXX" />
         </Field>
       </div>
     </Card>
@@ -242,11 +370,15 @@ function InfoStep() {
 }
 
 function ShippingStep({
+  ship,
+  setShip,
   installation,
   setInstallation,
   shipping,
   setShipping,
 }: {
+  ship: { address: string; city: string; state: string; pincode: string; landmark: string };
+  setShip: (v: typeof ship) => void;
   installation: boolean;
   setInstallation: (b: boolean) => void;
   shipping: "standard" | "express";
@@ -254,52 +386,32 @@ function ShippingStep({
 }) {
   return (
     <>
-      <Card
-        title="Shipping Address"
-        subtitle="Where should we deliver your order?"
-        icon={MapPin}
-      >
+      <Card title="Shipping Address" subtitle="Where should we deliver?" icon={MapPin}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Address line" className="sm:col-span-2">
-            <input
-              className={inputCls}
-              placeholder="House / Flat, Street, Area"
-              defaultValue="A-204, Sunshine Heights, Andheri West"
-            />
+            <input className={inputCls} value={ship.address} onChange={(e) => setShip({ ...ship, address: e.target.value })} placeholder="House / Flat, Street, Area" />
           </Field>
           <Field label="City">
-            <input className={inputCls} defaultValue="Mumbai" />
+            <input className={inputCls} value={ship.city} onChange={(e) => setShip({ ...ship, city: e.target.value })} />
           </Field>
           <Field label="State">
-            <input className={inputCls} defaultValue="Maharashtra" />
+            <input className={inputCls} value={ship.state} onChange={(e) => setShip({ ...ship, state: e.target.value })} />
           </Field>
           <Field label="PIN code">
-            <input className={inputCls} defaultValue="400053" />
+            <input className={inputCls} value={ship.pincode} onChange={(e) => setShip({ ...ship, pincode: e.target.value })} />
           </Field>
           <Field label="Landmark (optional)">
-            <input className={inputCls} placeholder="Near…" />
+            <input className={inputCls} value={ship.landmark} onChange={(e) => setShip({ ...ship, landmark: e.target.value })} />
           </Field>
         </div>
       </Card>
 
       <Card title="Delivery Speed">
         <div className="grid gap-3 sm:grid-cols-2">
-          {(
-            [
-              {
-                id: "standard",
-                title: "Standard",
-                body: "4–6 business days",
-                price: "Free",
-              },
-              {
-                id: "express",
-                title: "Express",
-                body: "1–2 business days",
-                price: "+₹299",
-              },
-            ] as const
-          ).map((o) => {
+          {([
+            { id: "standard", title: "Standard", body: "4–6 business days", price: "Free" },
+            { id: "express", title: "Express", body: "1–2 business days", price: "+₹299" },
+          ] as const).map((o) => {
             const selected = shipping === o.id;
             return (
               <button
@@ -307,29 +419,19 @@ function ShippingStep({
                 onClick={() => setShipping(o.id)}
                 className={cn(
                   "flex items-start justify-between rounded-xl border p-4 text-left transition-all",
-                  selected
-                    ? "border-primary bg-primary-soft/40 shadow-soft"
-                    : "border-border bg-card hover:border-border-strong",
+                  selected ? "border-primary bg-primary-soft/40 shadow-soft" : "border-border bg-card hover:border-border-strong",
                 )}
               >
                 <div>
                   <p className="text-sm font-semibold">{o.title}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{o.body}</p>
                 </div>
-                <span
-                  className={cn(
-                    "text-sm font-semibold",
-                    selected ? "text-primary" : "text-foreground",
-                  )}
-                >
-                  {o.price}
-                </span>
+                <span className={cn("text-sm font-semibold", selected ? "text-primary" : "text-foreground")}>{o.price}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Installation toggle */}
         <div className="mt-5 flex items-center justify-between rounded-xl border border-border bg-surface/60 p-4">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -337,26 +439,16 @@ function ShippingStep({
             </div>
             <div>
               <p className="text-sm font-semibold">Professional Installation</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Certified technician on-site · {formatINR(INSTALL_FEE)}
-              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Certified technician on-site · {formatINR(INSTALL_FEE)}</p>
             </div>
           </div>
           <button
             role="switch"
             aria-checked={installation}
             onClick={() => setInstallation(!installation)}
-            className={cn(
-              "relative h-7 w-12 flex-shrink-0 rounded-full transition-colors",
-              installation ? "bg-primary" : "bg-border-strong",
-            )}
+            className={cn("relative h-7 w-12 flex-shrink-0 rounded-full transition-colors", installation ? "bg-primary" : "bg-border-strong")}
           >
-            <span
-              className={cn(
-                "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-card shadow-soft transition-transform",
-                installation && "translate-x-5",
-              )}
-            />
+            <span className={cn("absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-card shadow-soft transition-transform", installation && "translate-x-5")} />
           </button>
         </div>
       </Card>
@@ -364,18 +456,36 @@ function ShippingStep({
   );
 }
 
-function PaymentStep() {
-  const [method, setMethod] = useState<"card" | "upi" | "cod">("card");
+function PaymentStep({
+  method,
+  setMethod,
+  paymentRef,
+  setPaymentRef,
+  proofFile,
+  setProofFile,
+  settings,
+  total,
+}: {
+  method: "upi_qr" | "paytm" | "bank_transfer" | "cod";
+  setMethod: (m: "upi_qr" | "paytm" | "bank_transfer" | "cod") => void;
+  paymentRef: string;
+  setPaymentRef: (s: string) => void;
+  proofFile: File | null;
+  setProofFile: (f: File | null) => void;
+  settings: { upi_id: string | null; paytm_id: string | null; bank_account_name: string | null; bank_account_number: string | null; bank_ifsc: string | null; bank_name: string | null; qr_code_url: string | null; cod_enabled: boolean; notes: string | null } | null | undefined;
+  total: number;
+}) {
+  const methods: Array<{ id: typeof method; label: string; show: boolean }> = [
+    { id: "upi_qr", label: "UPI / QR", show: !!settings?.upi_id || !!settings?.qr_code_url },
+    { id: "paytm", label: "Paytm", show: !!settings?.paytm_id },
+    { id: "bank_transfer", label: "Bank Transfer", show: !!settings?.bank_account_number || !!settings?.bank_name },
+    { id: "cod", label: "Cash on Delivery", show: !!settings?.cod_enabled },
+  ];
+
   return (
-    <Card title="Payment Method" subtitle="All transactions are secured & encrypted" icon={Lock}>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {(
-          [
-            { id: "card", label: "Card" },
-            { id: "upi", label: "UPI" },
-            { id: "cod", label: "Cash on Delivery" },
-          ] as const
-        ).map((m) => (
+    <Card title="Payment Method" subtitle="Pay manually and upload proof — admin will verify" icon={Lock}>
+      <div className="grid gap-2 sm:grid-cols-4">
+        {methods.filter((m) => m.show).map((m) => (
           <button
             key={m.id}
             onClick={() => setMethod(m.id)}
@@ -391,67 +501,85 @@ function PaymentStep() {
         ))}
       </div>
 
-      {method === "card" && (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label="Card number" className="sm:col-span-2">
-            <div className="relative">
-              <input className={cn(inputCls, "pr-10")} placeholder="1234 5678 9012 3456" />
-              <CreditCard className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {method === "upi_qr" && (
+        <div className="mt-5 space-y-4 rounded-xl border border-border bg-surface/40 p-4">
+          {settings?.qr_code_url && (
+            <div className="flex justify-center">
+              <img src={settings.qr_code_url} alt="UPI QR code" className="h-44 w-44 rounded-lg border border-border bg-white object-contain p-2" />
             </div>
-          </Field>
-          <Field label="Expiry">
-            <input className={inputCls} placeholder="MM / YY" />
-          </Field>
-          <Field label="CVV">
-            <input className={inputCls} placeholder="123" />
-          </Field>
+          )}
+          {settings?.upi_id && (
+            <p className="text-center text-sm">
+              UPI ID: <span className="font-semibold">{settings.upi_id}</span>
+            </p>
+          )}
+          <p className="text-center text-xs text-muted-foreground">
+            Pay {formatINR(total)} via any UPI app, then upload the screenshot below.
+          </p>
         </div>
       )}
 
-      {method === "upi" && (
-        <div className="mt-5">
-          <Field label="UPI ID">
-            <input className={inputCls} placeholder="yourname@okhdfc" />
-          </Field>
+      {method === "paytm" && settings?.paytm_id && (
+        <div className="mt-5 rounded-xl border border-border bg-surface/40 p-4 text-sm">
+          Send <span className="font-semibold">{formatINR(total)}</span> to Paytm ID:{" "}
+          <span className="font-semibold">{settings.paytm_id}</span>
+        </div>
+      )}
+
+      {method === "bank_transfer" && settings && (
+        <div className="mt-5 space-y-1 rounded-xl border border-border bg-surface/40 p-4 text-sm">
+          <p><span className="text-muted-foreground">Account name: </span><span className="font-semibold">{settings.bank_account_name}</span></p>
+          <p><span className="text-muted-foreground">Bank: </span><span className="font-semibold">{settings.bank_name}</span></p>
+          {settings.bank_account_number && <p><span className="text-muted-foreground">A/C: </span><span className="font-semibold">{settings.bank_account_number}</span></p>}
+          {settings.bank_ifsc && <p><span className="text-muted-foreground">IFSC: </span><span className="font-semibold">{settings.bank_ifsc}</span></p>}
+          <p className="pt-2 text-xs text-muted-foreground">Transfer {formatINR(total)} and upload proof.</p>
         </div>
       )}
 
       {method === "cod" && (
         <p className="mt-5 rounded-xl bg-surface px-4 py-3 text-xs text-muted-foreground">
-          Pay in cash when your order arrives. ID verification may be required for orders above
-          ₹25,000.
+          Pay in cash when your order arrives. ID verification may be required for orders above ₹25,000.
         </p>
+      )}
+
+      {method !== "cod" && (
+        <div className="mt-5 space-y-4">
+          <Field label="Payment reference / UTR (optional)">
+            <input className={inputCls} value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} placeholder="UTR / Transaction ID" />
+          </Field>
+          <Field label="Upload payment screenshot">
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-surface/50 px-4 py-3 text-sm transition-colors hover:border-primary hover:bg-primary-soft/30">
+              <Upload className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">{proofFile ? proofFile.name : "Choose image…"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          </Field>
+          {settings?.notes && (
+            <p className="rounded-lg bg-primary-soft/30 px-3 py-2 text-xs text-primary-deep">{settings.notes}</p>
+          )}
+        </div>
       )}
     </Card>
   );
 }
 
-function PlaceOrderButton({ total }: { total: number }) {
-  const [done, setDone] = useState(false);
+function EmptyCart() {
   return (
-    <button
-      onClick={() => setDone(true)}
-      className={cn(
-        "inline-flex items-center gap-3 rounded-full px-7 py-3.5 text-sm font-semibold shadow-button transition-all",
-        done
-          ? "bg-success text-success-foreground"
-          : "bg-gradient-primary text-primary-foreground hover:brightness-110 active:scale-[0.98]",
-      )}
-    >
-      {done ? (
-        <>
-          <Check className="h-4 w-4" strokeWidth={3} /> Order placed
-        </>
-      ) : (
-        <>
-          <Lock className="h-4 w-4" /> Place order · {formatINR(total)}
-        </>
-      )}
-    </button>
+    <div className="mt-10 rounded-3xl border border-border bg-card p-10 text-center">
+      <p className="text-lg font-semibold">Your cart is empty</p>
+      <p className="mt-1 text-sm text-muted-foreground">Add products before checking out.</p>
+      <Link to="/" className="mt-5 inline-flex rounded-full bg-gradient-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-button hover:brightness-110">
+        Browse catalog
+      </Link>
+    </div>
   );
 }
 
-/* ---------- Order summary ---------- */
 function OrderSummary({
   items,
   subtotal,
@@ -460,8 +588,6 @@ function OrderSummary({
   installFee,
   tax,
   total,
-  installation,
-  shipping,
 }: {
   items: ReturnType<typeof useCart>["items"];
   subtotal: number;
@@ -470,10 +596,8 @@ function OrderSummary({
   installFee: number;
   tax: number;
   total: number;
-  installation: boolean;
-  shipping: "standard" | "express";
 }) {
-  const itemCount = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items]);
+  const itemCount = items.reduce((s, i) => s + i.qty, 0);
   return (
     <div className="glass-card overflow-hidden rounded-3xl">
       <div className="p-5 sm:p-6">
@@ -485,148 +609,48 @@ function OrderSummary({
         </div>
 
         <ul className="mt-5 space-y-3">
-          {items.map(({ product, qty }) => (
-            <li key={product.id} className="flex gap-3">
-              <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-card/70">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  loading="lazy"
-                  className="h-full w-full object-contain p-1"
-                />
-                <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background">
-                  {qty}
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-xs font-medium leading-snug">
-                  {product.name}
-                </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{product.brand}</p>
-              </div>
-              <span className="text-xs font-semibold tabular-nums">
-                {formatINR(product.price * qty)}
-              </span>
-            </li>
-          ))}
+          {items.map((item) => {
+            const { product, qty } = item;
+            const price = effectivePrice(item);
+            return (
+              <li key={product.id} className="flex gap-3">
+                <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-card/70">
+                  <img src={product.image} alt={product.name} loading="lazy" className="h-full w-full object-contain p-1" />
+                  <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold text-background">
+                    {qty}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-xs font-medium">{product.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatINR(price)} each</p>
+                </div>
+                <p className="text-xs font-semibold tabular-nums">{formatINR(price * qty)}</p>
+              </li>
+            );
+          })}
         </ul>
 
-        <div className="mt-5 space-y-2 border-t border-border/60 pt-4 text-sm">
+        <dl className="mt-6 space-y-2 border-t border-border/50 pt-5 text-sm">
           <Row label="Subtotal" value={formatINR(subtotal)} />
-          {savings > 0 && (
-            <Row
-              label="You save"
-              value={`− ${formatINR(savings)}`}
-              valueClass="text-success"
-            />
-          )}
-          <Row
-            label={`Shipping · ${shipping === "express" ? "Express" : "Standard"}`}
-            value={shippingFee === 0 ? "Free" : formatINR(shippingFee)}
-          />
-          {installation && (
-            <Row label="Professional Installation" value={formatINR(installFee)} />
-          )}
-          <Row label="GST (18%)" value={formatINR(tax)} />
-        </div>
-
-        <div className="mt-4 flex items-end justify-between border-t border-border/60 pt-4">
+          {savings > 0 && <Row label="You save" value={formatINR(savings)} positive />}
+          <Row label="Shipping" value={shippingFee === 0 ? "Free" : formatINR(shippingFee)} />
+          {installFee > 0 && <Row label="Installation" value={formatINR(installFee)} />}
+          <Row label="Tax (18% GST)" value={formatINR(tax)} />
+        </dl>
+        <div className="mt-4 flex items-baseline justify-between border-t border-border/50 pt-4">
           <span className="text-sm font-semibold">Total</span>
-          <span className="text-2xl font-semibold tracking-tight tabular-nums">
-            {formatINR(total)}
-          </span>
-        </div>
-
-        <div className="mt-5 grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
-          <Trust icon={ShieldCheck} label="Secure" />
-          <Trust icon={Truck} label="Tracked" />
-          <Trust icon={Wrench} label="Installed" />
+          <span className="text-xl font-semibold tracking-tight">{formatINR(total)}</span>
         </div>
       </div>
     </div>
   );
 }
 
-function Row({
-  label,
-  value,
-  valueClass,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
+function Row({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-medium tabular-nums", valueClass)}>{value}</span>
-    </div>
-  );
-}
-
-function Trust({
-  icon: Icon,
-  label,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1 rounded-xl bg-card/60 py-2">
-      <Icon className="h-3.5 w-3.5 text-primary" />
-      <span className="font-semibold uppercase tracking-wider">{label}</span>
-    </div>
-  );
-}
-
-/* ---------- Card primitive ---------- */
-function Card({
-  title,
-  subtitle,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-soft sm:p-6">
-      <header className="mb-5 flex items-start gap-3">
-        {Icon && (
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-            <Icon className="h-4 w-4" />
-          </div>
-        )}
-        <div>
-          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-          {subtitle && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-          )}
-        </div>
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function EmptyCart() {
-  return (
-    <div className="mt-12 flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card p-12 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface">
-        <CreditCard className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-semibold">Nothing to check out</p>
-      <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-        Your cart is empty. Add a few products and come back to complete your order.
-      </p>
-      <Link
-        to="/"
-        className="mt-5 rounded-full bg-gradient-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground shadow-button hover:brightness-110"
-      >
-        Browse catalog
-      </Link>
+    <div className="flex items-center justify-between">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn("font-medium tabular-nums", positive && "text-success")}>{value}</dd>
     </div>
   );
 }

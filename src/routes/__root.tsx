@@ -1,8 +1,21 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import {
+  Outlet,
+  Link,
+  createRootRouteWithContext,
+  HeadContent,
+  Scripts,
+} from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
 import { CartDrawer } from "@/components/cart-drawer";
+import { AuthProvider } from "@/lib/auth";
+
+interface RouterContext {
+  queryClient: QueryClient;
+}
 
 function NotFoundComponent() {
   return (
@@ -26,7 +39,7 @@ function NotFoundComponent() {
   );
 }
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -47,12 +60,7 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
+    links: [{ rel: "stylesheet", href: appCss }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -74,11 +82,17 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <SiteHeader />
-      <Outlet />
-      <CartDrawer />
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <div className="min-h-dvh bg-background text-foreground">
+          <SiteHeader />
+          <Outlet />
+          <CartDrawer />
+          <Toaster richColors position="top-right" closeButton />
+        </div>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
