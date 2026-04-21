@@ -93,7 +93,7 @@ function CheckoutPage() {
   const handlePlaceOrder = async () => {
     if (!isAuthenticated) {
       toast.error("Please sign in to place an order");
-      navigate({ to: "/auth", search: { redirect: "/checkout" } } as never);
+      navigate({ to: "/auth", search: { redirect: "/checkout" } });
       return;
     }
     if (items.length === 0) return;
@@ -144,7 +144,7 @@ function CheckoutPage() {
 
       cartStore.clear();
       toast.success("Order placed successfully!");
-      navigate({ to: "/orders" } as never);
+      navigate({ to: "/orders" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to place order";
       toast.error(msg);

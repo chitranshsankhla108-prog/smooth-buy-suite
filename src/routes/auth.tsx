@@ -45,7 +45,7 @@ function AuthPage() {
   // Redirect if already signed in
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate({ to: search.redirect ?? "/", replace: true } as never);
+      navigate({ to: (search.redirect ?? "/") as "/", replace: true });
     }
   }, [loading, isAuthenticated, navigate, search.redirect]);
 
