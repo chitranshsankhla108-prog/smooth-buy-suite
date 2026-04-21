@@ -16,7 +16,7 @@ export const Route = createFileRoute("/admin")({
       .eq("user_id", session.user.id);
     const isAdmin = (roles ?? []).some((r) => r.role === "admin");
     if (!isAdmin) {
-      throw redirect({ to: "/", search: {} } as never);
+      throw redirect({ to: "/" });
     }
   },
   component: AdminLayout,
