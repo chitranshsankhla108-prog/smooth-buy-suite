@@ -32,7 +32,7 @@ const signUpSchema = signInSchema.extend({
 });
 
 function AuthPage() {
-  const { signIn, signUp, isAuthenticated, loading } = useAuth();
+  const { signIn, signUp, isAuthenticated, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const search = useSearch({ from: "/auth" });
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signin");
@@ -42,12 +42,15 @@ function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already signed in
+  // Redirect if already signed in: admins → /admin/dashboard, customers → search.redirect or /
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (loading || !isAuthenticated) return;
+    if (isAdmin) {
+      navigate({ to: "/admin/dashboard", replace: true });
+    } else {
       navigate({ to: (search.redirect ?? "/") as "/", replace: true });
     }
-  }, [loading, isAuthenticated, navigate, search.redirect]);
+  }, [loading, isAuthenticated, isAdmin, navigate, search.redirect]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
