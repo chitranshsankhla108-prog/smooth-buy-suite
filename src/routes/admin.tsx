@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, LayoutDashboard, Package, Settings, ClipboardList, ArrowLeft } from "lucide-react";
+import { Loader2, LayoutDashboard, Package, Settings, ClipboardList, ArrowLeft, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +29,11 @@ function AdminLayout() {
 
   const items = [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+    { to: "/admin/dashboard", label: "Stock Dashboard", icon: BarChart3 },
     { to: "/admin/inventory", label: "Inventory", icon: Package },
     { to: "/admin/orders", label: "Orders", icon: ClipboardList },
     { to: "/admin/settings", label: "Payment Settings", icon: Settings },
-  ];
+  ] as const;
 
   if (!ready) {
     return (
