@@ -3,6 +3,7 @@ import { Truck, Wrench, Star, ShoppingCart, Building2, Check } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, type Product } from "@/lib/products-api";
+import { ProductDetailModal } from "@/components/product-detail-modal";
 
 type Props = {
   product: Product;
@@ -13,6 +14,7 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
   const [qty, setQty] = useState(initialQty);
   const [compare, setCompare] = useState(false);
   const [added, setAdded] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const isBulk =
     product.bulkPrice != null &&
@@ -22,17 +24,22 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
   const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (outOfStock) return;
     cartStore.add(product, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };
 
+  const openDetails = () => setDetailOpen(true);
+
   return (
+    <>
     <article
+      onClick={openDetails}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300",
+        "group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300",
         "hover:-translate-y-1 hover:border-border-strong hover:shadow-elevated",
       )}
     >
@@ -59,6 +66,7 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
         )}
 
         <label
+          onClick={(e) => e.stopPropagation()}
           className={cn(
             "absolute right-3 top-3 inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-[11px] font-medium backdrop-blur-md transition-all",
             compare
@@ -132,7 +140,10 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
         </div>
 
         {product.bulkAvailable && (
-          <div className="flex items-center justify-between rounded-lg bg-surface px-2 py-1.5">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-between rounded-lg bg-surface px-2 py-1.5"
+          >
             <span className="text-[11px] font-medium text-muted-foreground">Qty</span>
             <div className="flex items-center gap-2">
               <button
@@ -175,11 +186,19 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
               </>
             )}
           </button>
-          <button className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary-soft/40 px-3 py-2.5 text-xs font-semibold text-primary transition-all hover:bg-primary-soft hover:border-primary active:scale-[0.98]">
+          <button
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary-soft/40 px-3 py-2.5 text-xs font-semibold text-primary transition-all hover:bg-primary-soft hover:border-primary active:scale-[0.98]"
+          >
             <Building2 className="h-3.5 w-3.5" /> Bulk Inquiry
           </button>
         </div>
       </div>
     </article>
+    <ProductDetailModal
+      product={detailOpen ? product : null}
+      onClose={() => setDetailOpen(false)}
+    />
+    </>
   );
 }
