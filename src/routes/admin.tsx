@@ -33,7 +33,7 @@ function AdminLayout() {
     { to: "/admin/inventory", label: "Inventory", icon: Package },
     { to: "/admin/orders", label: "Orders", icon: ClipboardList },
     { to: "/admin/settings", label: "Payment Settings", icon: Settings },
-  ] as const;
+  ] as { to: "/admin" | "/admin/dashboard" | "/admin/inventory" | "/admin/orders" | "/admin/settings"; label: string; icon: typeof LayoutDashboard; exact?: boolean }[];
 
   if (!ready) {
     return (
