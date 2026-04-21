@@ -3,6 +3,7 @@ import { Truck, Wrench, Star, ShoppingCart, Building2, Check } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, type Product } from "@/lib/products-api";
+import { ProductDetailModal } from "@/components/product-detail-modal";
 
 type Props = {
   product: Product;
@@ -13,6 +14,7 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
   const [qty, setQty] = useState(initialQty);
   const [compare, setCompare] = useState(false);
   const [added, setAdded] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const isBulk =
     product.bulkPrice != null &&
@@ -22,17 +24,22 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
   const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
 
-  const handleAdd = () => {
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (outOfStock) return;
     cartStore.add(product, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };
 
+  const openDetails = () => setDetailOpen(true);
+
   return (
+    <>
     <article
+      onClick={openDetails}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300",
+        "group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300",
         "hover:-translate-y-1 hover:border-border-strong hover:shadow-elevated",
       )}
     >
