@@ -6,6 +6,19 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
+function normalizeRedirect(redirect?: string) {
+  if (!redirect) return "/" as const;
+  if (redirect.startsWith("http://") || redirect.startsWith("https://")) {
+    try {
+      const url = new URL(redirect);
+      return ((url.pathname || "/") + url.search + url.hash) as "/";
+    } catch {
+      return "/" as const;
+    }
+  }
+  return redirect.startsWith("/") ? (redirect as "/") : "/";
+}
+
 const searchSchema = z.object({
   redirect: z.string().optional(),
   mode: z.enum(["signin", "signup"]).optional(),
@@ -35,6 +48,7 @@ function AuthPage() {
   const { signIn, signUp, isAuthenticated, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const search = useSearch({ from: "/auth" });
+  const redirectTarget = normalizeRedirect(search.redirect);
   const [mode, setMode] = useState<"signin" | "signup">(search.mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,9 +62,9 @@ function AuthPage() {
     if (isAdmin) {
       navigate({ to: "/admin/dashboard", replace: true });
     } else {
-      navigate({ to: (search.redirect ?? "/") as "/", replace: true });
+      navigate({ to: redirectTarget, replace: true });
     }
-  }, [loading, isAuthenticated, isAdmin, navigate, search.redirect]);
+  }, [loading, isAuthenticated, isAdmin, navigate, redirectTarget]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

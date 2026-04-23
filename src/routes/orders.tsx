@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/orders")({
   beforeLoad: async ({ location }) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw redirect({ to: "/auth", search: { redirect: location.href } });
+    if (!session) throw redirect({ to: "/auth", search: { redirect: location.pathname + location.search + location.hash } });
   },
   component: OrdersPage,
 });

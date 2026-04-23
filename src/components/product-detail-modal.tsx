@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { X, Star, Truck, Wrench, ShieldCheck, ShoppingCart, Building2, Check } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, type Product } from "@/lib/products-api";
@@ -9,22 +10,21 @@ type Props = {
   onClose: () => void;
 };
 
-// Derive plausible specs from product fields (no DB columns for these yet)
 function deriveSpecs(p: Product) {
   const isPower = p.category === "Power";
   const isSecurity = p.category === "Security";
   const isSolar = p.category === "Solar";
 
   return [
-    { label: "Brand", value: p.brand },
-    { label: "Model", value: p.sku },
-    { label: "Category", value: p.category },
+    { label: "Voltage", value: isPower ? "12V / 24V Compatible" : isSolar ? "24V DC" : "220V AC" },
+    { label: "AH", value: isPower ? "150 AH" : isSolar ? "100 AH Equivalent" : "N/A" },
+    { label: "Resolution", value: isSecurity ? "5MP Ultra HD" : "N/A" },
     {
       label: "Warranty",
       value: isPower ? "24 months" : isSecurity ? "12 months" : isSolar ? "60 months" : "12 months",
     },
     {
-      label: "Capacity",
+      label: "Technical Capacity",
       value: isPower
         ? "1100 VA / 12V"
         : isSecurity
@@ -33,8 +33,8 @@ function deriveSpecs(p: Product) {
             ? "330 W · Mono-PERC"
             : "Standard",
     },
-    { label: "Installation", value: p.installation ? "Included" : "Not included" },
-    { label: "Heavy item", value: p.heavy ? "Yes" : "No" },
+    { label: "Brand", value: p.brand },
+    { label: "Model", value: p.sku },
     { label: "In stock", value: p.stock > 0 ? `${p.stock} units` : "Out of stock" },
   ];
 }
@@ -81,6 +81,12 @@ export function ProductDetailModal({ product, onClose }: Props) {
       onClose();
       cartStore.openDrawer();
     }, 900);
+  };
+
+  const handleBulkQuote = () => {
+    toast.message(`Bulk quote request started for ${product.name}`, {
+      description: qty > 1 ? `Requested quantity: ${qty} units.` : "Increase quantity if you need a larger order.",
+    });
   };
 
   return (
@@ -234,8 +240,11 @@ export function ProductDetailModal({ product, onClose }: Props) {
               </>
             )}
           </button>
-          <button className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary-soft/40 px-5 py-3 text-sm font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]">
-            <Building2 className="h-4 w-4" /> Get Bulk Quote
+          <button
+            onClick={handleBulkQuote}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary-soft/40 px-5 py-3 text-sm font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]"
+          >
+            <Building2 className="h-4 w-4" /> Request Bulk Quote
           </button>
         </div>
       </div>
@@ -243,7 +252,7 @@ export function ProductDetailModal({ product, onClose }: Props) {
   );
 }
 
-function Pill({ icon: Icon, children }: { icon: typeof Truck; children: React.ReactNode }) {
+function Pill({ icon: Icon, children }: { icon: typeof Truck; children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-muted-foreground">
       <Icon className="h-3 w-3" /> {children}
