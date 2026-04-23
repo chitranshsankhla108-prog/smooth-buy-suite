@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Truck, Wrench, Star, ShoppingCart, Building2, Check } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, type Product } from "@/lib/products-api";
@@ -30,6 +31,14 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
     cartStore.add(product, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
+  };
+
+  const handleBulkQuote = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDetailOpen(true);
+    toast.message(`Bulk quote request ready for ${product.name}`, {
+      description: "Review the product details and quantity, then contact the sales team.",
+    });
   };
 
   const openDetails = () => setDetailOpen(true);
@@ -187,10 +196,10 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
             )}
           </button>
           <button
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleBulkQuote}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary-soft/40 px-3 py-2.5 text-xs font-semibold text-primary transition-all hover:bg-primary-soft hover:border-primary active:scale-[0.98]"
           >
-            <Building2 className="h-3.5 w-3.5" /> Bulk Inquiry
+            <Building2 className="h-3.5 w-3.5" /> Request Bulk Quote
           </button>
         </div>
       </div>
