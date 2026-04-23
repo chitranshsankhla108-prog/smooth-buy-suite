@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit2, X, Loader2, Package, AlertTriangle } from "lucide-react";
+import { Search, Edit2, X, Loader2, Package, AlertTriangle, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   adminProductsQueryOptions,
@@ -214,6 +214,7 @@ function EditDrawer({
   const [bulkPrice, setBulkPrice] = useState<number | "">("");
   const [bulkMinQty, setBulkMinQty] = useState<number | "">("");
   const [lowThreshold, setLowThreshold] = useState(5);
+  const [adjustment, setAdjustment] = useState(1);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -223,6 +224,7 @@ function EditDrawer({
       setBulkPrice(product.bulkPrice ?? "");
       setBulkMinQty(product.bulkMinQty ?? "");
       setLowThreshold(product.lowStockThreshold);
+      setAdjustment(1);
     }
   }, [product]);
 
@@ -256,6 +258,10 @@ function EditDrawer({
 
   const inputCls =
     "w-full rounded-xl border border-border bg-input px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:bg-card focus:ring-2 focus:ring-primary/20";
+
+  const adjustStock = (delta: number) => {
+    setStock((current) => Math.max(0, current + delta));
+  };
 
   return (
     <>
@@ -303,6 +309,42 @@ function EditDrawer({
             </div>
 
             <div className="flex-1 space-y-5 overflow-y-auto p-5">
+              <div className="rounded-2xl border border-border bg-surface/70 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Adjust Stock
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">Apply a quick increment or deduction.</p>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full border border-border bg-card p-1 shadow-soft">
+                    <button
+                      type="button"
+                      onClick={() => adjustStock(-adjustment)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                      aria-label="Decrease stock"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={adjustment}
+                      onChange={(e) => setAdjustment(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-16 rounded-lg bg-input px-2 py-1.5 text-center text-sm font-semibold tabular-nums outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => adjustStock(adjustment)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-button transition-all hover:brightness-110"
+                      aria-label="Increase stock"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Current stock">
                   <input
@@ -365,8 +407,7 @@ function EditDrawer({
                   </Field>
                 </div>
                 <p className="mt-3 text-[11px] text-muted-foreground">
-                  Customers ordering above the min quantity will see the bulk price applied
-                  automatically.
+                  Customers ordering above the minimum quantity automatically receive the bulk price.
                 </p>
               </div>
             </div>
@@ -394,7 +435,7 @@ function EditDrawer({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{label}</span>
