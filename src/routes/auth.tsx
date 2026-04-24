@@ -45,7 +45,7 @@ const signUpSchema = signInSchema.extend({
 });
 
 function AuthPage() {
-  const { signIn, signUp, isAuthenticated, isAdmin, loading } = useAuth();
+  const { signIn, signUp, isAuthenticated, isAdmin, isDealer, loading } = useAuth();
   const navigate = useNavigate();
   const search = useSearch({ from: "/auth" });
   const redirectTarget = normalizeRedirect(search.redirect);
@@ -56,15 +56,21 @@ function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already signed in: admins → /admin/dashboard, customers → search.redirect or /
+  // Redirect if already signed in: honor dealer/admin intent first, then role defaults.
   useEffect(() => {
     if (loading || !isAuthenticated) return;
-    if (isAdmin) {
-      navigate({ to: "/admin/dashboard", replace: true });
-    } else {
+    if (redirectTarget.startsWith("/dealer") && isDealer) {
       navigate({ to: redirectTarget, replace: true });
+    } else if (redirectTarget.startsWith("/admin") && isAdmin) {
+      navigate({ to: redirectTarget, replace: true });
+    } else if (isAdmin) {
+      navigate({ to: "/admin/dashboard", replace: true });
+    } else if (isDealer) {
+      navigate({ to: "/dealer/dashboard", replace: true });
+    } else {
+      navigate({ to: redirectTarget.startsWith("/admin") || redirectTarget.startsWith("/dealer") ? "/" : redirectTarget, replace: true });
     }
-  }, [loading, isAuthenticated, isAdmin, navigate, redirectTarget]);
+  }, [loading, isAuthenticated, isAdmin, isDealer, navigate, redirectTarget]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
