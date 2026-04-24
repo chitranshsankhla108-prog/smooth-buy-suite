@@ -8,6 +8,7 @@ import {
   type Product,
 } from "@/lib/products-api";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 type CategoryFilter = "All" | Product["category"];
 const CATEGORIES: CategoryFilter[] = ["All", "Power", "Security", "Solar", "Appliances"];
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { data: products } = useSuspenseQuery(productsQueryOptions());
+  const { isDealer } = useAuth();
   const [active, setActive] = useState<CategoryFilter>("All");
 
   const visible =
@@ -48,7 +50,7 @@ function HomePage() {
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-soft px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary-deep">
                 <Sparkles className="h-3 w-3" />
-                Hybrid retail + B2B bulk
+                {isDealer ? "Dealer catalogue" : "Hybrid retail + B2B bulk"}
               </span>
               <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
                 Power, security &{" "}
@@ -58,8 +60,9 @@ function HomePage() {
                 for every Indian home & business.
               </h1>
               <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-                Genuine brands, transparent pricing, installation included. Order one unit
-                or request bulk pricing for 10+ units — we ship across India.
+                {isDealer
+                  ? "Your regular shopping experience with confidential dealer-only pricing across eligible products."
+                  : "Genuine brands, transparent pricing, installation included. Order one unit or request bulk pricing for 10+ units — we ship across India."}
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3">
