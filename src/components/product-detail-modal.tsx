@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   product: Product | null;
