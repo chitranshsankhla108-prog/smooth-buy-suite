@@ -219,6 +219,54 @@ function StatusBadge({ status }: { status: ReturnType<typeof stockStatus> }) {
   );
 }
 
+function PendingDealers({
+  dealers,
+  onDone,
+}: {
+  dealers: Array<{ id: string; full_name: string | null; email: string | null; business_name: string | null; gst_number: string | null; created_at: string }>;
+  onDone: () => void;
+}) {
+  const handleDecision = async (id: string, approved: boolean) => {
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ dealer_status: approved ? "approved" : "rejected" })
+      .eq("id", id);
+    if (profileError) return toast.error(profileError.message);
+    if (approved) {
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: id, role: "dealer" });
+      if (roleError && !roleError.message.toLowerCase().includes("duplicate")) return toast.error(roleError.message);
+    }
+    toast.success(approved ? "Dealer approved" : "Dealer rejected");
+    onDone();
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      {dealers.length === 0 ? (
+        <p className="rounded-xl bg-surface p-5 text-sm text-muted-foreground">No pending dealer applications.</p>
+      ) : (
+        <div className="space-y-3">
+          {dealers.map((d) => (
+            <div key={d.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface/50 p-4">
+              <div>
+                <p className="font-semibold">{d.business_name ?? "Unnamed business"}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{d.full_name} · {d.email}</p>
+                <p className="mt-1 font-mono text-xs text-primary-deep">GST: {d.gst_number ?? "—"}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleDecision(d.id, false)} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive"><UserX className="h-3.5 w-3.5" /> Reject</button>
+                <button onClick={() => handleDecision(d.id, true)} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-button"><UserCheck className="h-3.5 w-3.5" /> Approve</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditDrawer({
   product,
   onClose,
