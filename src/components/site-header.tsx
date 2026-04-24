@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShoppingCart, Zap, LayoutDashboard, LogOut, User } from "lucide-react";
+import { ShoppingCart, Zap, LayoutDashboard, LogOut, User, BriefcaseBusiness } from "lucide-react";
 import { cartStore, useCart, cartTotals } from "@/lib/cart-store";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -7,7 +7,7 @@ import { toast } from "sonner";
 export function SiteHeader() {
   const { items } = useCart();
   const { itemCount } = cartTotals(items);
-  const { isAuthenticated, isAdmin, signOut, user } = useAuth();
+  const { isAuthenticated, isAdmin, isDealer, signOut, user } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -45,6 +45,15 @@ export function SiteHeader() {
             >
               <LayoutDashboard className="h-3.5 w-3.5" />
               Dashboard
+            </Link>
+          )}
+          {isDealer && !isAdmin && (
+            <Link
+              to="/dealer/dashboard"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 font-semibold text-primary-deep transition-colors hover:bg-primary-soft/70"
+            >
+              <BriefcaseBusiness className="h-3.5 w-3.5" />
+              Dealer Portal
             </Link>
           )}
         </nav>
