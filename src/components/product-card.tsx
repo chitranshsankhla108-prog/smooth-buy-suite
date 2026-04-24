@@ -136,7 +136,7 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           {isDealer && (
             <p className="mt-0.5 text-[11px] font-semibold text-primary">Dealer Exclusive Price</p>
           )}
-          {product.bulkAvailable && product.bulkMinQty && (
+          {!isDealer && product.bulkAvailable && product.bulkMinQty && (
             <p className="mt-0.5 text-[11px] font-medium text-primary">
               {isBulk
                 ? `Bulk price applied (${product.bulkMinQty}+ units)`
@@ -158,7 +158,7 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           )}
         </div>
 
-        {product.bulkAvailable && (
+        {!isDealer && product.bulkAvailable && (
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex items-center justify-between rounded-lg bg-surface px-2 py-1.5"
@@ -205,12 +205,24 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
               </>
             )}
           </button>
-          <button
-            onClick={handleBulkQuote}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary-soft/40 px-3 py-2.5 text-xs font-semibold text-primary transition-all hover:bg-primary-soft hover:border-primary active:scale-[0.98]"
-          >
-            <Building2 className="h-3.5 w-3.5" /> Request Bulk Quote
-          </button>
+          {isDealer ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDetailOpen(true);
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary-soft/40 px-3 py-2.5 text-xs font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]"
+            >
+              <Building2 className="h-3.5 w-3.5" /> View Details
+            </button>
+          ) : (
+            <button
+              onClick={handleBulkQuote}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary-soft/40 px-3 py-2.5 text-xs font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]"
+            >
+              <Building2 className="h-3.5 w-3.5" /> Request Bulk Quote
+            </button>
+          )}
         </div>
       </div>
     </article>

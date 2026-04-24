@@ -228,9 +228,9 @@ export function ProductDetailModal({ product, onClose }: Props) {
                 </div>
               </div>
             )}
-            {isDealer && (
+            {isDealer && dealerSavings > 0 && (
               <div className="rounded-xl border border-primary/20 bg-primary-soft/35 p-3 text-xs text-primary-deep">
-                Total savings vs retail: <span className="font-semibold">{formatINR(dealerSavings)}</span>
+                Dealer margin advantage: <span className="font-semibold">{formatINR(dealerSavings)}</span>
               </div>
             )}
           </div>
@@ -263,12 +263,14 @@ export function ProductDetailModal({ product, onClose }: Props) {
               </>
             )}
           </button>
-          <button
-            onClick={handleBulkQuote}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary-soft/40 px-5 py-3 text-sm font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]"
-          >
-            <Building2 className="h-4 w-4" /> Request Bulk Quote
-          </button>
+          {!isDealer && (
+            <button
+              onClick={handleBulkQuote}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary-soft/40 px-5 py-3 text-sm font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]"
+            >
+              <Building2 className="h-4 w-4" /> Request Bulk Quote
+            </button>
+          )}
         </div>
       </div>
     </div>
