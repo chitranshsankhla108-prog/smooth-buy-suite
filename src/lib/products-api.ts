@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { resolveProductImage } from "./product-images";
 
 export type DBProduct = Database["public"]["Tables"]["products"]["Row"];
+type VisibleProduct = Database["public"]["Functions"]["get_visible_products"]["Returns"][number];
 
 export type Product = {
   id: string;
@@ -30,7 +31,7 @@ export type Product = {
   active: boolean;
 };
 
-export const mapDBProduct = (p: DBProduct): Product => ({
+export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
   id: p.id,
   sku: p.sku,
   name: p.name,
