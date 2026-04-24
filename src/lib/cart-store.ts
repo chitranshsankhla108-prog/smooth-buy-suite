@@ -67,6 +67,7 @@ export function useCart() {
 
 const effectivePrice = (item: CartItem) => {
   const { product, qty } = item;
+  if (product.dealerPrice != null) return product.dealerPrice;
   if (
     product.bulkPrice != null &&
     product.bulkMinQty != null &&

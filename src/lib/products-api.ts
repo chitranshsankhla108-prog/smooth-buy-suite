@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { resolveProductImage } from "./product-images";
 
 export type DBProduct = Database["public"]["Tables"]["products"]["Row"];
+type VisibleProduct = Database["public"]["Functions"]["get_visible_products"]["Returns"][number];
 
 export type Product = {
   id: string;
@@ -12,6 +13,8 @@ export type Product = {
   brand: string;
   category: DBProduct["category"];
   price: number;
+  retailPrice: number;
+  dealerPrice: number | null;
   mrp: number;
   bulkPrice: number | null;
   bulkMinQty: number | null;
@@ -28,13 +31,15 @@ export type Product = {
   active: boolean;
 };
 
-export const mapDBProduct = (p: DBProduct): Product => ({
+export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
   id: p.id,
   sku: p.sku,
   name: p.name,
   brand: p.brand,
   category: p.category,
   price: Number(p.price),
+  retailPrice: Number(p.retail_price ?? p.price),
+  dealerPrice: p.dealer_price !== null && p.dealer_price !== undefined ? Number(p.dealer_price) : null,
   mrp: Number(p.mrp),
   bulkPrice: p.bulk_price !== null ? Number(p.bulk_price) : null,
   bulkMinQty: p.bulk_min_qty,
@@ -54,15 +59,14 @@ export const mapDBProduct = (p: DBProduct): Product => ({
 export const formatINR = (n: number) =>
   "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
+export const productPriceForRole = (p: Product, isDealer: boolean) =>
+  isDealer && p.dealerPrice != null ? p.dealerPrice : p.retailPrice;
+
 export const productsQueryOptions = () =>
   queryOptions({
     queryKey: ["products", "active"],
     queryFn: async (): Promise<Product[]> => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("active", true)
-        .order("name");
+      const { data, error } = await supabase.rpc("get_visible_products");
       if (error) throw error;
       return (data ?? []).map(mapDBProduct);
     },
@@ -73,10 +77,7 @@ export const adminProductsQueryOptions = () =>
   queryOptions({
     queryKey: ["products", "admin", "all"],
     queryFn: async (): Promise<Product[]> => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .order("name");
+      const { data, error } = await supabase.rpc("get_admin_products");
       if (error) throw error;
       return (data ?? []).map(mapDBProduct);
     },

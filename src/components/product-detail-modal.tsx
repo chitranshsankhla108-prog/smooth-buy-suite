@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { X, Star, Truck, Wrench, ShieldCheck, ShoppingCart, Building2, Check } from "lucide-react";
+import { X, Star, Truck, Wrench, ShieldCheck, ShoppingCart, Building2, Check, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
-import { formatINR, type Product } from "@/lib/products-api";
+import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   product: Product | null;
@@ -43,6 +45,7 @@ export function ProductDetailModal({ product, onClose }: Props) {
   const open = !!product;
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const { isDealer, user } = useAuth();
 
   useEffect(() => {
     if (product) setQty(1);
@@ -66,11 +69,12 @@ export function ProductDetailModal({ product, onClose }: Props) {
   if (!product) return null;
 
   const isBulk =
-    product.bulkPrice != null && product.bulkMinQty != null && qty >= product.bulkMinQty;
-  const effective = isBulk ? product.bulkPrice! : product.price;
+    !isDealer && product.bulkPrice != null && product.bulkMinQty != null && qty >= product.bulkMinQty;
+  const effective = isBulk ? product.bulkPrice! : productPriceForRole(product, isDealer);
   const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
   const specs = deriveSpecs(product);
+  const dealerSavings = Math.max(0, (product.retailPrice - effective) * qty);
 
   const handleAdd = () => {
     if (outOfStock) return;
@@ -84,6 +88,13 @@ export function ProductDetailModal({ product, onClose }: Props) {
   };
 
   const handleBulkQuote = () => {
+    if (isDealer && user) {
+      supabase.from("dealer_inquiries").insert({ dealer_id: user.id, product_id: product.id, product_name: product.name, quantity: qty }).then(({ error }) => {
+        if (error) toast.error(error.message);
+        else toast.success("Dealer inquiry submitted");
+      });
+      return;
+    }
     toast.message(`Bulk quote request started for ${product.name}`, {
       description: qty > 1 ? `Requested quantity: ${qty} units.` : "Increase quantity if you need a larger order.",
     });
@@ -157,7 +168,9 @@ export function ProductDetailModal({ product, onClose }: Props) {
                   </span>
                 )}
               </div>
-              {product.bulkAvailable && product.bulkMinQty && (
+              {isDealer ? (
+                <p className="mt-1.5 text-xs font-semibold text-primary">Dealer Exclusive Price</p>
+              ) : product.bulkAvailable && product.bulkMinQty && (
                 <p className="mt-1.5 text-xs font-medium text-primary">
                   {isBulk
                     ? `✓ Bulk price applied (${product.bulkMinQty}+ units)`
@@ -193,9 +206,9 @@ export function ProductDetailModal({ product, onClose }: Props) {
               </dl>
             </div>
 
-            {product.bulkAvailable && (
+            {(product.bulkAvailable || isDealer) && (
               <div className="flex items-center justify-between rounded-xl bg-surface px-3 py-2">
-                <span className="text-xs font-medium text-muted-foreground">Quantity</span>
+                <span className="text-xs font-medium text-muted-foreground">{isDealer ? "Bulk Quantity" : "Quantity"}</span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setQty(Math.max(1, qty - 1))}
@@ -215,11 +228,21 @@ export function ProductDetailModal({ product, onClose }: Props) {
                 </div>
               </div>
             )}
+            {isDealer && (
+              <div className="rounded-xl border border-primary/20 bg-primary-soft/35 p-3 text-xs text-primary-deep">
+                Total savings vs retail: <span className="font-semibold">{formatINR(dealerSavings)}</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Sticky CTA bar */}
-        <div className="sticky bottom-0 grid grid-cols-2 gap-3 border-t border-border bg-card/95 p-4 backdrop-blur-xl sm:p-5">
+        <div className="sticky bottom-0 grid gap-3 border-t border-border bg-card/95 p-4 backdrop-blur-xl sm:grid-cols-3 sm:p-5">
+          {isDealer && (
+            <a href="#" onClick={(e) => e.preventDefault()} className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-all hover:border-primary hover:text-primary">
+              <FileDown className="h-4 w-4" /> Download PDF Brochure
+            </a>
+          )}
           <button
             onClick={handleAdd}
             disabled={outOfStock}

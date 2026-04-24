@@ -3,8 +3,9 @@ import { Truck, Wrench, Star, ShoppingCart, Building2, Check } from "lucide-reac
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
-import { formatINR, type Product } from "@/lib/products-api";
+import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
 import { ProductDetailModal } from "@/components/product-detail-modal";
+import { useAuth } from "@/lib/auth";
 
 type Props = {
   product: Product;
@@ -16,12 +17,14 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
   const [compare, setCompare] = useState(false);
   const [added, setAdded] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const { isDealer } = useAuth();
 
   const isBulk =
+    !isDealer &&
     product.bulkPrice != null &&
     product.bulkMinQty != null &&
     qty >= product.bulkMinQty;
-  const effective = isBulk ? product.bulkPrice! : product.price;
+  const effective = isBulk ? product.bulkPrice! : productPriceForRole(product, isDealer);
   const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
 
@@ -62,7 +65,11 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
         />
 
-        {discount > 0 && (
+        {isDealer ? (
+          <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-soft">
+            Dealer Exclusive Price
+          </span>
+        ) : discount > 0 && (
           <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-success px-2.5 py-1 text-[11px] font-semibold text-success-foreground shadow-soft">
             {discount}% OFF
           </span>
@@ -122,10 +129,13 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
             <span className="text-xl font-semibold tracking-tight text-foreground">
               {formatINR(effective)}
             </span>
-            <span className="text-xs text-muted-foreground line-through">
+            {!isDealer && <span className="text-xs text-muted-foreground line-through">
               {formatINR(product.mrp)}
-            </span>
+            </span>}
           </div>
+          {isDealer && (
+            <p className="mt-0.5 text-[11px] font-semibold text-primary">Dealer Exclusive Price</p>
+          )}
           {product.bulkAvailable && product.bulkMinQty && (
             <p className="mt-0.5 text-[11px] font-medium text-primary">
               {isBulk

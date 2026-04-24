@@ -9,7 +9,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type Role = "admin" | "customer";
+type Role = "admin" | "customer" | "dealer";
 
 type AuthValue = {
   user: User | null;
@@ -18,6 +18,7 @@ type AuthValue = {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isDealer: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAuthenticated: !!session?.user,
       isAdmin: roles.includes("admin"),
+      isDealer: roles.includes("dealer"),
       async signIn(email, password) {
         const { error } = await supabase.auth.signInWithPassword({
           email,

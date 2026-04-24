@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit2, X, Loader2, Package, AlertTriangle, Minus, Plus } from "lucide-react";
+import { Search, Edit2, X, Loader2, Package, AlertTriangle, Minus, Plus, UserCheck, UserX } from "lucide-react";
 import { toast } from "sonner";
 import {
   adminProductsQueryOptions,
@@ -24,9 +24,23 @@ type Cat = (typeof CATEGORIES)[number];
 
 function StockDashboard() {
   const { data: products = [], isLoading } = useQuery(adminProductsQueryOptions());
+  const qc = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<Cat>("All");
+  const [tab, setTab] = useState<"stock" | "dealers">("stock");
+  const { data: pendingDealers = [] } = useQuery({
+    queryKey: ["dealers", "pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, business_name, gst_number, dealer_status, created_at")
+        .eq("dealer_status", "pending")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -66,7 +80,11 @@ function StockDashboard() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex rounded-xl bg-surface p-1 text-sm font-semibold">
+          <button onClick={() => setTab("stock")} className={cn("flex-1 rounded-lg px-3 py-2 transition-colors", tab === "stock" ? "bg-card text-foreground shadow-soft" : "text-muted-foreground")}>Inventory</button>
+          <button onClick={() => setTab("dealers")} className={cn("flex-1 rounded-lg px-3 py-2 transition-colors", tab === "dealers" ? "bg-card text-foreground shadow-soft" : "text-muted-foreground")}>Pending Dealers ({pendingDealers.length})</button>
+        </div>
+        {tab === "stock" && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 sm:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -92,10 +110,10 @@ function StockDashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      {tab === "dealers" ? <PendingDealers dealers={pendingDealers} onDone={() => qc.invalidateQueries({ queryKey: ["dealers", "pending"] })} /> : <div className="overflow-hidden rounded-2xl border border-border bg-card">
         {isLoading ? (
           <div className="flex justify-center py-14">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -175,7 +193,7 @@ function StockDashboard() {
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
       <EditDrawer product={editing} onClose={() => setEditing(null)} />
     </div>
@@ -201,6 +219,54 @@ function StatusBadge({ status }: { status: ReturnType<typeof stockStatus> }) {
   );
 }
 
+function PendingDealers({
+  dealers,
+  onDone,
+}: {
+  dealers: Array<{ id: string; full_name: string | null; email: string | null; business_name: string | null; gst_number: string | null; created_at: string }>;
+  onDone: () => void;
+}) {
+  const handleDecision = async (id: string, approved: boolean) => {
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ dealer_status: approved ? "approved" : "rejected" })
+      .eq("id", id);
+    if (profileError) return toast.error(profileError.message);
+    if (approved) {
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: id, role: "dealer" });
+      if (roleError && !roleError.message.toLowerCase().includes("duplicate")) return toast.error(roleError.message);
+    }
+    toast.success(approved ? "Dealer approved" : "Dealer rejected");
+    onDone();
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      {dealers.length === 0 ? (
+        <p className="rounded-xl bg-surface p-5 text-sm text-muted-foreground">No pending dealer applications.</p>
+      ) : (
+        <div className="space-y-3">
+          {dealers.map((d) => (
+            <div key={d.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface/50 p-4">
+              <div>
+                <p className="font-semibold">{d.business_name ?? "Unnamed business"}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{d.full_name} · {d.email}</p>
+                <p className="mt-1 font-mono text-xs text-primary-deep">GST: {d.gst_number ?? "—"}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleDecision(d.id, false)} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive"><UserX className="h-3.5 w-3.5" /> Reject</button>
+                <button onClick={() => handleDecision(d.id, true)} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-button"><UserCheck className="h-3.5 w-3.5" /> Approve</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditDrawer({
   product,
   onClose,
@@ -211,6 +277,7 @@ function EditDrawer({
   const qc = useQueryClient();
   const [stock, setStock] = useState(0);
   const [price, setPrice] = useState(0);
+  const [dealerPrice, setDealerPrice] = useState<number | "">("");
   const [bulkPrice, setBulkPrice] = useState<number | "">("");
   const [bulkMinQty, setBulkMinQty] = useState<number | "">("");
   const [lowThreshold, setLowThreshold] = useState(5);
@@ -221,6 +288,7 @@ function EditDrawer({
     if (product) {
       setStock(product.stock);
       setPrice(product.price);
+      setDealerPrice(product.dealerPrice ?? "");
       setBulkPrice(product.bulkPrice ?? "");
       setBulkMinQty(product.bulkMinQty ?? "");
       setLowThreshold(product.lowStockThreshold);
@@ -239,6 +307,8 @@ function EditDrawer({
         .update({
           stock,
           price,
+          retail_price: price,
+          dealer_price: dealerPrice === "" ? null : Number(dealerPrice),
           bulk_price: bulkPrice === "" ? null : Number(bulkPrice),
           bulk_min_qty: bulkMinQty === "" ? null : Number(bulkMinQty),
           low_stock_threshold: lowThreshold,
@@ -373,6 +443,17 @@ function EditDrawer({
                   value={price}
                   onChange={(e) => setPrice(Number(e.target.value))}
                   className={inputCls}
+                />
+              </Field>
+
+              <Field label="Dealer price (₹)">
+                <input
+                  type="number"
+                  min={0}
+                  value={dealerPrice}
+                  onChange={(e) => setDealerPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                  className={inputCls}
+                  placeholder="private B2B price"
                 />
               </Field>
 
