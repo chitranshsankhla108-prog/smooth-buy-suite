@@ -277,6 +277,7 @@ function EditDrawer({
   const qc = useQueryClient();
   const [stock, setStock] = useState(0);
   const [price, setPrice] = useState(0);
+  const [dealerPrice, setDealerPrice] = useState<number | "">("");
   const [bulkPrice, setBulkPrice] = useState<number | "">("");
   const [bulkMinQty, setBulkMinQty] = useState<number | "">("");
   const [lowThreshold, setLowThreshold] = useState(5);
@@ -287,6 +288,7 @@ function EditDrawer({
     if (product) {
       setStock(product.stock);
       setPrice(product.price);
+      setDealerPrice(product.dealerPrice ?? "");
       setBulkPrice(product.bulkPrice ?? "");
       setBulkMinQty(product.bulkMinQty ?? "");
       setLowThreshold(product.lowStockThreshold);
@@ -305,6 +307,8 @@ function EditDrawer({
         .update({
           stock,
           price,
+          retail_price: price,
+          dealer_price: dealerPrice === "" ? null : Number(dealerPrice),
           bulk_price: bulkPrice === "" ? null : Number(bulkPrice),
           bulk_min_qty: bulkMinQty === "" ? null : Number(bulkMinQty),
           low_stock_threshold: lowThreshold,
@@ -439,6 +443,17 @@ function EditDrawer({
                   value={price}
                   onChange={(e) => setPrice(Number(e.target.value))}
                   className={inputCls}
+                />
+              </Field>
+
+              <Field label="Dealer price (₹)">
+                <input
+                  type="number"
+                  min={0}
+                  value={dealerPrice}
+                  onChange={(e) => setDealerPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                  className={inputCls}
+                  placeholder="private B2B price"
                 />
               </Field>
 
