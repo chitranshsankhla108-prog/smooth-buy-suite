@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      dealer_inquiries: {
+        Row: {
+          created_at: string
+          dealer_id: string
+          id: string
+          notes: string | null
+          product_id: string
+          product_name: string
+          quantity: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dealer_id: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          product_name: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dealer_id?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -204,6 +240,7 @@ export type Database = {
           category: Database["public"]["Enums"]["product_category"]
           created_at: string
           cross_sell_ids: string[] | null
+          dealer_price: number | null
           fast_delivery: boolean | null
           heavy: boolean | null
           id: string
@@ -214,6 +251,7 @@ export type Database = {
           name: string
           price: number
           rating: number | null
+          retail_price: number | null
           reviews: number | null
           sku: string
           stock: number
@@ -228,6 +266,7 @@ export type Database = {
           category: Database["public"]["Enums"]["product_category"]
           created_at?: string
           cross_sell_ids?: string[] | null
+          dealer_price?: number | null
           fast_delivery?: boolean | null
           heavy?: boolean | null
           id: string
@@ -238,6 +277,7 @@ export type Database = {
           name: string
           price: number
           rating?: number | null
+          retail_price?: number | null
           reviews?: number | null
           sku: string
           stock?: number
@@ -252,6 +292,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["product_category"]
           created_at?: string
           cross_sell_ids?: string[] | null
+          dealer_price?: number | null
           fast_delivery?: boolean | null
           heavy?: boolean | null
           id?: string
@@ -262,6 +303,7 @@ export type Database = {
           name?: string
           price?: number
           rating?: number | null
+          retail_price?: number | null
           reviews?: number | null
           sku?: string
           stock?: number
@@ -271,25 +313,34 @@ export type Database = {
       }
       profiles: {
         Row: {
+          business_name: string | null
           created_at: string
+          dealer_status: Database["public"]["Enums"]["dealer_status"] | null
           email: string | null
           full_name: string | null
+          gst_number: string | null
           id: string
           phone: string | null
           updated_at: string
         }
         Insert: {
+          business_name?: string | null
           created_at?: string
+          dealer_status?: Database["public"]["Enums"]["dealer_status"] | null
           email?: string | null
           full_name?: string | null
+          gst_number?: string | null
           id: string
           phone?: string | null
           updated_at?: string
         }
         Update: {
+          business_name?: string | null
           created_at?: string
+          dealer_status?: Database["public"]["Enums"]["dealer_status"] | null
           email?: string | null
           full_name?: string | null
+          gst_number?: string | null
           id?: string
           phone?: string | null
           updated_at?: string
@@ -322,6 +373,60 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_admin_products: {
+        Args: never
+        Returns: {
+          active: boolean
+          brand: string
+          bulk_available: boolean
+          bulk_min_qty: number
+          bulk_price: number
+          category: Database["public"]["Enums"]["product_category"]
+          cross_sell_ids: string[]
+          dealer_price: number
+          fast_delivery: boolean
+          heavy: boolean
+          id: string
+          image_url: string
+          installation: boolean
+          low_stock_threshold: number
+          mrp: number
+          name: string
+          price: number
+          rating: number
+          retail_price: number
+          reviews: number
+          sku: string
+          stock: number
+        }[]
+      }
+      get_visible_products: {
+        Args: never
+        Returns: {
+          active: boolean
+          brand: string
+          bulk_available: boolean
+          bulk_min_qty: number
+          bulk_price: number
+          category: Database["public"]["Enums"]["product_category"]
+          cross_sell_ids: string[]
+          dealer_price: number
+          fast_delivery: boolean
+          heavy: boolean
+          id: string
+          image_url: string
+          installation: boolean
+          low_stock_threshold: number
+          mrp: number
+          name: string
+          price: number
+          rating: number
+          retail_price: number
+          reviews: number
+          sku: string
+          stock: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -329,6 +434,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_approved_dealer: { Args: { _user_id: string }; Returns: boolean }
       place_order: {
         Args: {
           _customer_email: string
