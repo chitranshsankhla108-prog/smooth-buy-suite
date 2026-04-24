@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit2, X, Loader2, Package, AlertTriangle, Minus, Plus } from "lucide-react";
+import { Search, Edit2, X, Loader2, Package, AlertTriangle, Minus, Plus, UserCheck, UserX } from "lucide-react";
 import { toast } from "sonner";
 import {
   adminProductsQueryOptions,
@@ -24,9 +24,23 @@ type Cat = (typeof CATEGORIES)[number];
 
 function StockDashboard() {
   const { data: products = [], isLoading } = useQuery(adminProductsQueryOptions());
+  const qc = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<Cat>("All");
+  const [tab, setTab] = useState<"stock" | "dealers">("stock");
+  const { data: pendingDealers = [] } = useQuery({
+    queryKey: ["dealers", "pending"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, business_name, gst_number, dealer_status, created_at")
+        .eq("dealer_status", "pending")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -66,7 +80,11 @@ function StockDashboard() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex rounded-xl bg-surface p-1 text-sm font-semibold">
+          <button onClick={() => setTab("stock")} className={cn("flex-1 rounded-lg px-3 py-2 transition-colors", tab === "stock" ? "bg-card text-foreground shadow-soft" : "text-muted-foreground")}>Inventory</button>
+          <button onClick={() => setTab("dealers")} className={cn("flex-1 rounded-lg px-3 py-2 transition-colors", tab === "dealers" ? "bg-card text-foreground shadow-soft" : "text-muted-foreground")}>Pending Dealers ({pendingDealers.length})</button>
+        </div>
+        {tab === "stock" && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 sm:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -92,10 +110,10 @@ function StockDashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      {tab === "dealers" ? <PendingDealers dealers={pendingDealers} onDone={() => qc.invalidateQueries({ queryKey: ["dealers", "pending"] })} /> : <div className="overflow-hidden rounded-2xl border border-border bg-card">
         {isLoading ? (
           <div className="flex justify-center py-14">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -175,7 +193,7 @@ function StockDashboard() {
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
       <EditDrawer product={editing} onClose={() => setEditing(null)} />
     </div>
