@@ -35,14 +35,6 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
     setTimeout(() => setAdded(false), 1400);
   };
 
-  const handleBulkQuote = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDetailOpen(true);
-    toast.message(`Bulk quote request ready for ${product.name}`, {
-      description: "Review the product details and quantity, then contact the sales team.",
-    });
-  };
-
   const openDetails = () => setDetailOpen(true);
 
   return (
