@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth";
 
 type Props = {
   product: Product;
-  initialQty?: number;
 };
 
 export function ProductCard({ product }: Props) {
