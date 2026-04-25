@@ -144,7 +144,7 @@ function HomePage() {
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((p) => (
-            <ProductCard key={p.id} product={p} initialQty={1} />
+            <ProductCard key={p.id} product={p} />
           ))}
         </div>
       </section>
