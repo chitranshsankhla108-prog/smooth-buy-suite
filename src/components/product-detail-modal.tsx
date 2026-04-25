@@ -1,11 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { X, Star, Truck, Wrench, ShieldCheck, ShoppingCart, Building2, Check, FileDown } from "lucide-react";
-import { toast } from "sonner";
+import { X, Star, Truck, Wrench, ShieldCheck, ShoppingCart, Check, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   product: Product | null;
