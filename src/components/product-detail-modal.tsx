@@ -43,7 +43,7 @@ export function ProductDetailModal({ product, onClose }: Props) {
   const open = !!product;
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
-  const { isDealer, user } = useAuth();
+  const { isDealer } = useAuth();
 
   useEffect(() => {
     if (product) setQty(1);
@@ -66,9 +66,7 @@ export function ProductDetailModal({ product, onClose }: Props) {
 
   if (!product) return null;
 
-  const isBulk =
-    !isDealer && product.bulkPrice != null && product.bulkMinQty != null && qty >= product.bulkMinQty;
-  const effective = isBulk ? product.bulkPrice! : productPriceForRole(product, isDealer);
+  const effective = productPriceForRole(product, isDealer);
   const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
   const specs = deriveSpecs(product);
@@ -83,19 +81,6 @@ export function ProductDetailModal({ product, onClose }: Props) {
       onClose();
       cartStore.openDrawer();
     }, 900);
-  };
-
-  const handleBulkQuote = () => {
-    if (isDealer && user) {
-      supabase.from("dealer_inquiries").insert({ dealer_id: user.id, product_id: product.id, product_name: product.name, quantity: qty }).then(({ error }) => {
-        if (error) toast.error(error.message);
-        else toast.success("Dealer inquiry submitted");
-      });
-      return;
-    }
-    toast.message(`Bulk quote request started for ${product.name}`, {
-      description: qty > 1 ? `Requested quantity: ${qty} units.` : "Increase quantity if you need a larger order.",
-    });
   };
 
   return (
