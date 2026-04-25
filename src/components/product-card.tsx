@@ -11,26 +11,20 @@ type Props = {
   initialQty?: number;
 };
 
-export function ProductCard({ product, initialQty = 1 }: Props) {
-  const [qty, setQty] = useState(initialQty);
+export function ProductCard({ product }: Props) {
   const [compare, setCompare] = useState(false);
   const [added, setAdded] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const { isDealer } = useAuth();
 
-  const isBulk =
-    !isDealer &&
-    product.bulkPrice != null &&
-    product.bulkMinQty != null &&
-    qty >= product.bulkMinQty;
-  const effective = isBulk ? product.bulkPrice! : productPriceForRole(product, isDealer);
+  const effective = productPriceForRole(product, isDealer);
   const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (outOfStock) return;
-    cartStore.add(product, qty);
+    cartStore.add(product, 1);
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };
