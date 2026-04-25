@@ -151,14 +151,8 @@ export function ProductDetailModal({ product, onClose }: Props) {
                   </span>
                 )}
               </div>
-              {isDealer ? (
+              {isDealer && (
                 <p className="mt-1.5 text-xs font-semibold text-primary">Dealer Exclusive Price</p>
-              ) : product.bulkAvailable && product.bulkMinQty && (
-                <p className="mt-1.5 text-xs font-medium text-primary">
-                  {isBulk
-                    ? `✓ Bulk price applied (${product.bulkMinQty}+ units)`
-                    : `Bulk pricing from ${product.bulkMinQty} units · ${formatINR(product.bulkPrice ?? 0)}/unit`}
-                </p>
               )}
             </div>
 
