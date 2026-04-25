@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Truck, Wrench, Star, ShoppingCart, Building2, Check } from "lucide-react";
-import { toast } from "sonner";
+import { Truck, Wrench, Star, ShoppingCart, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
