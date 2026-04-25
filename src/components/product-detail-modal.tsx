@@ -213,8 +213,7 @@ export function ProductDetailModal({ product, onClose }: Props) {
           </div>
         </div>
 
-        {/* Sticky CTA bar */}
-        <div className="sticky bottom-0 grid gap-3 border-t border-border bg-card/95 p-4 backdrop-blur-xl sm:grid-cols-3 sm:p-5">
+        <div className={cn("sticky bottom-0 grid gap-3 border-t border-border bg-card/95 p-4 backdrop-blur-xl sm:p-5", isDealer ? "sm:grid-cols-2" : "sm:grid-cols-1")}>
           {isDealer && (
             <a href="#" onClick={(e) => e.preventDefault()} className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-all hover:border-primary hover:text-primary">
               <FileDown className="h-4 w-4" /> Download PDF Brochure
@@ -240,14 +239,6 @@ export function ProductDetailModal({ product, onClose }: Props) {
               </>
             )}
           </button>
-          {!isDealer && (
-            <button
-              onClick={handleBulkQuote}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary-soft/40 px-5 py-3 text-sm font-semibold text-primary transition-all hover:border-primary hover:bg-primary-soft active:scale-[0.98]"
-            >
-              <Building2 className="h-4 w-4" /> Request Bulk Quote
-            </button>
-          )}
         </div>
       </div>
     </div>
