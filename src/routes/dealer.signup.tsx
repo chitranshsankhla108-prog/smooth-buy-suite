@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dealer/signup")({
-  head: () => ({ meta: [{ title: "Dealer Registration — Voltzo" }] }),
+  head: () => ({ meta: [{ title: "Dealer Registration — Mayur Electronics" }] }),
   component: DealerSignup,
 });
 

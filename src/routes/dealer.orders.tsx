@@ -18,7 +18,7 @@ export const Route = createFileRoute("/dealer/orders")({
       .eq("user_id", session.user.id);
     if (!(roles ?? []).some((r) => r.role === "dealer")) throw redirect({ to: "/" });
   },
-  head: () => ({ meta: [{ title: "Dealer Orders & Balance — Voltzo" }] }),
+  head: () => ({ meta: [{ title: "Dealer Orders & Balance — Mayur Electronics" }] }),
   component: DealerOrdersPage,
 });
 

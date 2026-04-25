@@ -47,7 +47,7 @@ function AdminOverview() {
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="text-base font-semibold">Welcome to the Voltzo admin</h2>
+        <h2 className="text-base font-semibold">Welcome to the Mayur Electronics admin</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Use the sidebar to manage inventory, review pending orders, and configure payment details
           (UPI, Paytm, bank, COD) shown to customers at checkout.

@@ -44,14 +44,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Voltzo — Soft Corporate Electronics Marketplace" },
+      { title: "Mayur Electronics — Soft Corporate Electronics Marketplace" },
       {
         name: "description",
         content:
           "Inverters, batteries, CCTV, solar and appliances. Retail and B2B bulk pricing with installation across India.",
       },
-      { name: "author", content: "Voltzo" },
-      { property: "og:title", content: "Voltzo — Soft Corporate Electronics Marketplace" },
+      { name: "author", content: "Mayur Electronics" },
+      { property: "og:title", content: "Mayur Electronics — Soft Corporate Electronics Marketplace" },
       {
         property: "og:description",
         content:
@@ -59,7 +59,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "Voltzo — Soft Corporate Electronics Marketplace" },
+      { name: "twitter:title", content: "Mayur Electronics — Soft Corporate Electronics Marketplace" },
       { name: "description", content: "An e-commerce application for electronics marketplaces, featuring hybrid product cards and a premium checkout flow." },
       { property: "og:description", content: "An e-commerce application for electronics marketplaces, featuring hybrid product cards and a premium checkout flow." },
       { name: "twitter:description", content: "An e-commerce application for electronics marketplaces, featuring hybrid product cards and a premium checkout flow." },

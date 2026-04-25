@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/checkout")({
   head: () => ({
     meta: [
-      { title: "Checkout — Voltzo" },
+      { title: "Checkout — Mayur Electronics" },
       { name: "description", content: "Complete your order with shipping and payment." },
     ],
   }),

@@ -27,7 +27,7 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Voltzo" },
+      { title: "Sign in — Mayur Electronics" },
       { name: "description", content: "Sign in to manage your orders or admin dashboard." },
     ],
   }),
@@ -127,7 +127,7 @@ function AuthPage() {
           <p className="mt-1.5 text-sm text-muted-foreground">
             {mode === "signin"
               ? "Sign in to track orders or access admin tools"
-              : "Join Voltzo to checkout faster and track your orders"}
+              : "Join Mayur Electronics to checkout faster and track your orders"}
           </p>
         </div>
 
