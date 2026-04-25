@@ -142,31 +142,8 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           )}
         </div>
 
-        {!isDealer && product.bulkAvailable && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-between rounded-lg bg-surface px-2 py-1.5"
-          >
-            <span className="text-[11px] font-medium text-muted-foreground">Qty</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setQty(Math.max(1, qty - 1))}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-card text-muted-foreground shadow-soft transition-colors hover:text-foreground"
-                aria-label="Decrease quantity"
-              >
-                −
-              </button>
-              <span className="w-7 text-center text-sm font-semibold tabular-nums">{qty}</span>
-              <button
-                onClick={() => setQty(Math.min(product.stock || 999, qty + 1))}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-card text-muted-foreground shadow-soft transition-colors hover:text-foreground"
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        )}
+
+
 
         <div className="mt-auto pt-1">
           <button
