@@ -127,13 +127,6 @@ export function ProductCard({ product, initialQty = 1 }: Props) {
           {isDealer && (
             <p className="mt-0.5 text-[11px] font-semibold text-primary">Dealer Exclusive Price</p>
           )}
-          {!isDealer && product.bulkAvailable && product.bulkMinQty && (
-            <p className="mt-0.5 text-[11px] font-medium text-primary">
-              {isBulk
-                ? `Bulk price applied (${product.bulkMinQty}+ units)`
-                : `Bulk pricing from ${product.bulkMinQty} units`}
-            </p>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-1.5 text-[11px]">
