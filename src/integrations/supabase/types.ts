@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dealer_inquiries: {
         Row: {
           created_at: string
@@ -237,7 +261,7 @@ export type Database = {
           bulk_available: boolean | null
           bulk_min_qty: number | null
           bulk_price: number | null
-          category: Database["public"]["Enums"]["product_category"]
+          category: string
           created_at: string
           cross_sell_ids: string[] | null
           dealer_price: number | null
@@ -263,7 +287,7 @@ export type Database = {
           bulk_available?: boolean | null
           bulk_min_qty?: number | null
           bulk_price?: number | null
-          category: Database["public"]["Enums"]["product_category"]
+          category: string
           created_at?: string
           cross_sell_ids?: string[] | null
           dealer_price?: number | null
@@ -289,7 +313,7 @@ export type Database = {
           bulk_available?: boolean | null
           bulk_min_qty?: number | null
           bulk_price?: number | null
-          category?: Database["public"]["Enums"]["product_category"]
+          category?: string
           created_at?: string
           cross_sell_ids?: string[] | null
           dealer_price?: number | null
@@ -381,7 +405,7 @@ export type Database = {
           bulk_available: boolean
           bulk_min_qty: number
           bulk_price: number
-          category: Database["public"]["Enums"]["product_category"]
+          category: string
           cross_sell_ids: string[]
           dealer_price: number
           fast_delivery: boolean
@@ -408,7 +432,7 @@ export type Database = {
           bulk_available: boolean
           bulk_min_qty: number
           bulk_price: number
-          category: Database["public"]["Enums"]["product_category"]
+          category: string
           cross_sell_ids: string[]
           dealer_price: number
           fast_delivery: boolean
@@ -466,7 +490,6 @@ export type Database = {
         | "cancelled"
         | "refunded"
       payment_method: "upi_qr" | "paytm" | "bank_transfer" | "cod"
-      product_category: "Power" | "Security" | "Solar" | "Appliances"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -607,7 +630,6 @@ export const Constants = {
         "refunded",
       ],
       payment_method: ["upi_qr", "paytm", "bank_transfer", "cod"],
-      product_category: ["Power", "Security", "Solar", "Appliances"],
     },
   },
 } as const

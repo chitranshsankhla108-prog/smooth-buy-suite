@@ -24,7 +24,7 @@ export function SiteHeader() {
             <Zap className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
           </div>
           <div className="leading-tight">
-            <div className="text-base font-semibold tracking-tight">Voltzo</div>
+            <div className="text-base font-semibold tracking-tight">Mayur Electronics</div>
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Electronics Marketplace
             </div>

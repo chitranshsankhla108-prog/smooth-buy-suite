@@ -10,7 +10,7 @@ export const Route = createFileRoute("/dealer/dashboard")({
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw redirect({ to: "/auth", search: { redirect: location.pathname } });
   },
-  head: () => ({ meta: [{ title: "Dealer Portal — Voltzo" }] }),
+  head: () => ({ meta: [{ title: "Dealer Portal — Mayur Electronics" }] }),
   component: DealerDashboard,
 });
 

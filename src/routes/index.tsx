@@ -1,41 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { ShieldCheck, Truck, Wrench, Building2, Sparkles } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
-import {
-  productsQueryOptions,
-  type Product,
-} from "@/lib/products-api";
+import { productsQueryOptions, categoriesQueryOptions } from "@/lib/products-api";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
-
-type CategoryFilter = "All" | Product["category"];
-const CATEGORIES: CategoryFilter[] = ["All", "Power", "Security", "Solar", "Appliances"];
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Shop Electronics — Voltzo Marketplace" },
+      { title: "Shop Electronics — Mayur Electronics" },
       {
         name: "description",
         content:
-          "Discover inverters, tubular batteries, CCTV, solar panels and home appliances. Retail and bulk pricing with installation.",
+          "Discover inverters, batteries, CCTV, solar panels and home appliances at Mayur Electronics. Genuine brands with installation across India.",
       },
     ],
   }),
   loader: ({ context: { queryClient } }) =>
-    queryClient.ensureQueryData(productsQueryOptions()),
+    Promise.all([
+      queryClient.ensureQueryData(productsQueryOptions()),
+      queryClient.ensureQueryData(categoriesQueryOptions()),
+    ]),
   component: HomePage,
 });
 
 function HomePage() {
   const { data: products } = useSuspenseQuery(productsQueryOptions());
+  const { data: categories = [] } = useQuery(categoriesQueryOptions());
   const { isDealer } = useAuth();
-  const [active, setActive] = useState<CategoryFilter>("All");
+  const [active, setActive] = useState<string>("All");
 
-  const visible =
-    active === "All" ? products : products.filter((p) => p.category === active);
+  const visible = active === "All" ? products : products.filter((p) => p.category === active);
+  const filters = ["All", ...categories.map((c) => c.name)];
 
   return (
     <main>
@@ -50,7 +48,7 @@ function HomePage() {
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-soft px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary-deep">
                 <Sparkles className="h-3 w-3" />
-                {isDealer ? "Dealer catalogue" : "Hybrid retail + B2B bulk"}
+                {isDealer ? "Dealer catalogue" : "Trusted electronics store"}
               </span>
               <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
                 Power, security &{" "}
@@ -62,7 +60,7 @@ function HomePage() {
               <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
                 {isDealer
                   ? "Your regular shopping experience with confidential dealer-only pricing across eligible products."
-                  : "Genuine brands, transparent pricing, installation included. Order one unit or request bulk pricing for 10+ units — we ship across India."}
+                  : "Genuine brands, transparent pricing, installation included. Shipped fast across India by Mayur Electronics."}
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3">
@@ -71,13 +69,6 @@ function HomePage() {
                   className="inline-flex items-center justify-center rounded-full bg-gradient-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-button transition-all hover:brightness-110 active:scale-[0.98]"
                 >
                   Shop the catalog
-                </a>
-                <a
-                  href="#trust"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground shadow-soft transition-all hover:border-border-strong hover:bg-surface"
-                >
-                  <Building2 className="h-4 w-4" />
-                  B2B bulk inquiry
                 </a>
               </div>
 
@@ -104,7 +95,7 @@ function HomePage() {
                 { icon: Truck, title: "Fast Delivery", body: "2–4 day shipping in metros" },
                 { icon: Wrench, title: "Installation", body: "Certified technicians on-site" },
                 { icon: ShieldCheck, title: "Genuine warranty", body: "Brand-backed, no fakes" },
-                { icon: Building2, title: "Bulk pricing", body: "Tier discounts above 10 units" },
+                { icon: Building2, title: "Pan-India service", body: "Stores across India" },
               ].map(({ icon: Icon, title, body }) => (
                 <div
                   key={title}
@@ -125,10 +116,7 @@ function HomePage() {
       <section id="catalog" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2
-              id="categories"
-              className="text-2xl font-semibold tracking-tight sm:text-3xl"
-            >
+            <h2 id="categories" className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Featured catalog
             </h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
@@ -137,7 +125,7 @@ function HomePage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
+            {filters.map((c) => (
               <button
                 key={c}
                 onClick={() => setActive(c)}
@@ -156,11 +144,7 @@ function HomePage() {
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              initialQty={p.id === "bat-220" ? 12 : 1}
-            />
+            <ProductCard key={p.id} product={p} />
           ))}
         </div>
       </section>
@@ -169,9 +153,9 @@ function HomePage() {
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
           <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
             <div>
-              <p className="text-sm font-semibold">Voltzo Electronics Marketplace</p>
+              <p className="text-sm font-semibold">Mayur Electronics</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                © {new Date().getFullYear()} Voltzo Pvt. Ltd. · GSTIN 27AABCU9603R1ZM
+                © {new Date().getFullYear()} Mayur Electronics · Power, security & solar specialists
               </p>
             </div>
             <div className="flex flex-wrap gap-5 text-xs text-muted-foreground">

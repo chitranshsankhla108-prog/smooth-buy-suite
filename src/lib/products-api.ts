@@ -11,7 +11,7 @@ export type Product = {
   sku: string;
   name: string;
   brand: string;
-  category: DBProduct["category"];
+  category: string;
   price: number;
   retailPrice: number;
   dealerPrice: number | null;
@@ -36,7 +36,7 @@ export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
   sku: p.sku,
   name: p.name,
   brand: p.brand,
-  category: p.category,
+  category: String(p.category),
   price: Number(p.price),
   retailPrice: Number(p.retail_price ?? p.price),
   dealerPrice: p.dealer_price !== null && p.dealer_price !== undefined ? Number(p.dealer_price) : null,
@@ -98,6 +98,23 @@ export const paymentSettingsQueryOptions = () =>
       return data;
     },
     staleTime: 30_000,
+  });
+
+export type Category = { id: string; name: string; sort_order: number };
+
+export const categoriesQueryOptions = () =>
+  queryOptions({
+    queryKey: ["categories"],
+    queryFn: async (): Promise<Category[]> => {
+      const { data, error } = await (supabase as any)
+        .from("categories")
+        .select("id,name,sort_order")
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Category[];
+    },
+    staleTime: 60_000,
   });
 
 export type StockStatus = "out" | "low" | "in";

@@ -48,7 +48,7 @@ function AdminLayout() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Admin</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Voltzo Dashboard</h1>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Mayur Electronics Dashboard</h1>
         </div>
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to shop
