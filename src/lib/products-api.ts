@@ -29,6 +29,7 @@ export type Product = {
   fastDelivery: boolean;
   crossSellIds: string[];
   active: boolean;
+  createdAt: string | null;
 };
 
 export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
