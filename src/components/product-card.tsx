@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Truck, Wrench, Star, ShoppingCart, Check } from "lucide-react";
+import { Heart, Minus, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
@@ -10,162 +10,177 @@ type Props = {
   product: Product;
 };
 
+// Stable pseudo-IDs derived from the product id so the catalogue mirrors the
+// reference template (Product ID + Item CD chips) without schema changes.
+const hashCode = (s: string) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+};
+const pid = (id: string) => {
+  const h = hashCode(id);
+  const letter = String.fromCharCode(65 + (h % 26));
+  return `${letter}${(h % 9000 + 1000).toString().padStart(4, "0")}`;
+};
+const itemCd = (id: string) => {
+  const h = hashCode(id + "x");
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let out = "";
+  let n = h;
+  for (let i = 0; i < 6; i++) {
+    out += letters[n % letters.length];
+    n = Math.floor(n / letters.length) + 7;
+  }
+  return out;
+};
+
 export function ProductCard({ product }: Props) {
-  const [compare, setCompare] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [wishlisted, setWishlisted] = useState(false);
   const [added, setAdded] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const { isDealer } = useAuth();
 
   const effective = productPriceForRole(product, isDealer);
-  const discount = Math.round(((product.mrp - effective) / product.mrp) * 100);
   const outOfStock = product.stock === 0;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (outOfStock) return;
-    cartStore.add(product, 1);
+    cartStore.add(product, qty);
     setAdded(true);
-    setTimeout(() => setAdded(false), 1400);
+    setTimeout(() => setAdded(false), 1200);
   };
 
-  const openDetails = () => setDetailOpen(true);
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
     <>
-    <article
-      onClick={openDetails}
-      className={cn(
-        "group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300",
-        "hover:-translate-y-1 hover:border-border-strong hover:shadow-elevated",
-      )}
-    >
-      <div className="relative aspect-square overflow-hidden bg-surface">
-        <img
-          src={product.image}
-          alt={product.name}
-          loading="lazy"
-          width={800}
-          height={800}
-          className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
-        />
-
-        {isDealer ? (
-          <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground shadow-soft">
-            Dealer Exclusive Price
-          </span>
-        ) : discount > 0 && (
-          <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-success px-2.5 py-1 text-[11px] font-semibold text-success-foreground shadow-soft">
-            {discount}% OFF
-          </span>
+      <article
+        onClick={() => setDetailOpen(true)}
+        className={cn(
+          "group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-200",
+          "hover:-translate-y-0.5 hover:border-border-strong hover:shadow-elevated",
         )}
-
-        {outOfStock && (
-          <span className="absolute left-3 bottom-3 inline-flex items-center rounded-full bg-destructive px-2.5 py-1 text-[11px] font-semibold text-destructive-foreground shadow-soft">
-            Out of stock
-          </span>
-        )}
-
-        <label
-          onClick={(e) => e.stopPropagation()}
-          className={cn(
-            "absolute right-3 top-3 inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-[11px] font-medium backdrop-blur-md transition-all",
-            compare
-              ? "border-primary text-primary"
-              : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
-          )}
-        >
-          <span
-            className={cn(
-              "flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border transition-all",
-              compare ? "border-primary bg-primary" : "border-border-strong bg-background",
-            )}
-          >
-            {compare && <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />}
-          </span>
-          <input
-            type="checkbox"
-            checked={compare}
-            onChange={(e) => setCompare(e.target.checked)}
-            className="sr-only"
+      >
+        {/* Image */}
+        <div className="relative aspect-square overflow-hidden bg-surface">
+          <img
+            src={product.image}
+            alt={product.name}
+            loading="lazy"
+            className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
           />
-          Compare
-        </label>
-      </div>
-
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-            {product.brand}
-          </span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Star className="h-3 w-3 fill-warning text-warning" />
-            <span className="font-medium text-foreground">{product.rating}</span>
-            <span>({product.reviews.toLocaleString("en-IN")})</span>
-          </div>
+          {isDealer && (
+            <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-soft">
+              Dealer
+            </span>
+          )}
+          {outOfStock && (
+            <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold text-destructive-foreground shadow-soft">
+              Out
+            </span>
+          )}
         </div>
 
-        <h3 className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
-          {product.name}
-        </h3>
+        {/* Body */}
+        <div className="flex flex-1 flex-col gap-2 p-3">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground">
+            {product.name}
+          </h3>
 
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-semibold tracking-tight text-foreground">
+          <div className="flex flex-col gap-1 text-[10px]">
+            <span className="inline-flex w-fit items-center rounded-md bg-primary-soft px-1.5 py-0.5 font-medium text-primary-deep">
+              Product ID:{pid(product.id)}
+            </span>
+            <span className="inline-flex w-fit items-center rounded-md bg-surface px-1.5 py-0.5 font-medium text-muted-foreground">
+              Item CD:{itemCd(product.id)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <span className="text-base font-bold tracking-tight text-foreground">
               {formatINR(effective)}
             </span>
-            {!isDealer && <span className="text-xs text-muted-foreground line-through">
-              {formatINR(product.mrp)}
-            </span>}
+            <span
+              className={cn(
+                "text-[11px] font-semibold",
+                outOfStock ? "text-destructive" : "text-success",
+              )}
+            >
+              {outOfStock ? "Out of Stock" : "In Stock"}
+            </span>
           </div>
-          {isDealer && (
-            <p className="mt-0.5 text-[11px] font-semibold text-primary">Dealer Exclusive Price</p>
-          )}
-        </div>
 
-        <div className="flex flex-wrap gap-1.5 text-[11px]">
-          {product.fastDelivery && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-muted-foreground">
-              <Truck className="h-3 w-3" /> Fast Delivery
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="rounded-md bg-surface px-1.5 py-0.5 font-semibold uppercase tracking-wide text-primary">
+              {product.brand}
             </span>
-          )}
-          {product.installation && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-muted-foreground">
-              <Wrench className="h-3 w-3" /> Installation Available
-            </span>
-          )}
-        </div>
+            {product.fastDelivery && <span>· Fast delivery</span>}
+          </div>
 
+          {/* Qty + Add to cart */}
+          <div className="mt-2 flex items-stretch gap-1.5" onClick={stop}>
+            <div className="flex items-center rounded-xl border border-border bg-input">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                className="flex h-8 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+              <span className="w-6 text-center text-xs font-semibold tabular-nums">{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.min(product.stock || 99, q + 1))}
+                className="flex h-8 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+            <button
+              onClick={handleAdd}
+              disabled={outOfStock}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-bold uppercase tracking-wide transition-all disabled:cursor-not-allowed disabled:opacity-50",
+                added
+                  ? "bg-success text-success-foreground"
+                  : "bg-gradient-primary text-primary-foreground shadow-button hover:brightness-110 active:scale-[0.98]",
+              )}
+            >
+              {added ? (
+                <>
+                  <Check className="h-3 w-3" strokeWidth={3} /> Added
+                </>
+              ) : (
+                "Add to Cart"
+              )}
+            </button>
+          </div>
 
-
-
-        <div className="mt-auto pt-1">
           <button
-            onClick={handleAdd}
-            disabled={outOfStock}
+            type="button"
+            onClick={(e) => {
+              stop(e);
+              setWishlisted((w) => !w);
+            }}
             className={cn(
-              "inline-flex w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50",
-              added
-                ? "bg-success text-success-foreground"
-                : "bg-gradient-primary text-primary-foreground shadow-button hover:brightness-110 active:scale-[0.98]",
+              "mt-1 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-input transition-colors",
+              wishlisted ? "text-destructive" : "text-muted-foreground hover:text-foreground",
             )}
+            aria-label="Wishlist"
           >
-            {added ? (
-              <>
-                <Check className="h-3.5 w-3.5" strokeWidth={3} /> Added
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="h-3.5 w-3.5" /> Add to Cart
-              </>
-            )}
+            <Heart className={cn("h-3.5 w-3.5", wishlisted && "fill-current")} />
           </button>
         </div>
-      </div>
-    </article>
-    <ProductDetailModal
-      product={detailOpen ? product : null}
-      onClose={() => setDetailOpen(false)}
-    />
+      </article>
+
+      <ProductDetailModal
+        product={detailOpen ? product : null}
+        onClose={() => setDetailOpen(false)}
+      />
     </>
   );
 }
