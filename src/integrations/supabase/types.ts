@@ -406,6 +406,7 @@ export type Database = {
           bulk_min_qty: number
           bulk_price: number
           category: string
+          created_at: string
           cross_sell_ids: string[]
           dealer_price: number
           fast_delivery: boolean
@@ -433,6 +434,7 @@ export type Database = {
           bulk_min_qty: number
           bulk_price: number
           category: string
+          created_at: string
           cross_sell_ids: string[]
           dealer_price: number
           fast_delivery: boolean
