@@ -124,16 +124,16 @@ function HomePage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
             {filters.map((c) => (
               <button
                 key={c}
                 onClick={() => setActive(c)}
                 className={cn(
-                  "rounded-full border px-4 py-1.5 text-xs font-semibold transition-all",
+                  "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
                   active === c
-                    ? "border-primary bg-primary text-primary-foreground shadow-button"
-                    : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground",
+                    ? "bg-gradient-primary text-primary-foreground shadow-button"
+                    : "text-primary-deep hover:bg-primary-soft",
                 )}
               >
                 {c}
@@ -142,7 +142,7 @@ function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
           {visible.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
