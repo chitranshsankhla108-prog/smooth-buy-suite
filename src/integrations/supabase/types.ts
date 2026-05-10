@@ -256,8 +256,10 @@ export type Database = {
       }
       products: {
         Row: {
+          ah_rating: string | null
           active: boolean
           brand: string
+          brand_name: string | null
           bulk_available: boolean | null
           bulk_min_qty: number | null
           bulk_price: number | null
@@ -265,25 +267,33 @@ export type Database = {
           created_at: string
           cross_sell_ids: string[] | null
           dealer_price: number | null
+          description: string | null
           fast_delivery: boolean | null
           heavy: boolean | null
           id: string
           image_url: string | null
           installation: boolean | null
           low_stock_threshold: number
+          model_name: string | null
           mrp: number
           name: string
           price: number
           rating: number | null
+          resolution: string | null
           retail_price: number | null
           reviews: number | null
           sku: string
           stock: number
+          technical_capacity: string | null
           updated_at: string
+          voltage: string | null
+          warranty_period: string | null
         }
         Insert: {
+          ah_rating?: string | null
           active?: boolean
           brand: string
+          brand_name?: string | null
           bulk_available?: boolean | null
           bulk_min_qty?: number | null
           bulk_price?: number | null
@@ -291,25 +301,33 @@ export type Database = {
           created_at?: string
           cross_sell_ids?: string[] | null
           dealer_price?: number | null
+          description?: string | null
           fast_delivery?: boolean | null
           heavy?: boolean | null
           id: string
           image_url?: string | null
           installation?: boolean | null
           low_stock_threshold?: number
+          model_name?: string | null
           mrp: number
           name: string
           price: number
           rating?: number | null
+          resolution?: string | null
           retail_price?: number | null
           reviews?: number | null
           sku: string
           stock?: number
+          technical_capacity?: string | null
           updated_at?: string
+          voltage?: string | null
+          warranty_period?: string | null
         }
         Update: {
+          ah_rating?: string | null
           active?: boolean
           brand?: string
+          brand_name?: string | null
           bulk_available?: boolean | null
           bulk_min_qty?: number | null
           bulk_price?: number | null
@@ -317,21 +335,27 @@ export type Database = {
           created_at?: string
           cross_sell_ids?: string[] | null
           dealer_price?: number | null
+          description?: string | null
           fast_delivery?: boolean | null
           heavy?: boolean | null
           id?: string
           image_url?: string | null
           installation?: boolean | null
           low_stock_threshold?: number
+          model_name?: string | null
           mrp?: number
           name?: string
           price?: number
           rating?: number | null
+          resolution?: string | null
           retail_price?: number | null
           reviews?: number | null
           sku?: string
           stock?: number
+          technical_capacity?: string | null
           updated_at?: string
+          voltage?: string | null
+          warranty_period?: string | null
         }
         Relationships: []
       }
@@ -400,8 +424,10 @@ export type Database = {
       get_admin_products: {
         Args: never
         Returns: {
+          ah_rating: string | null
           active: boolean
           brand: string
+          brand_name: string | null
           bulk_available: boolean
           bulk_min_qty: number
           bulk_price: number
@@ -409,27 +435,35 @@ export type Database = {
           created_at: string
           cross_sell_ids: string[]
           dealer_price: number
+          description: string | null
           fast_delivery: boolean
           heavy: boolean
           id: string
           image_url: string
           installation: boolean
           low_stock_threshold: number
+          model_name: string | null
           mrp: number
           name: string
           price: number
           rating: number
+          resolution: string | null
           retail_price: number
           reviews: number
           sku: string
           stock: number
+          technical_capacity: string | null
+          voltage: string | null
+          warranty_period: string | null
         }[]
       }
       get_visible_products: {
         Args: never
         Returns: {
+          ah_rating: string | null
           active: boolean
           brand: string
+          brand_name: string | null
           bulk_available: boolean
           bulk_min_qty: number
           bulk_price: number
@@ -437,20 +471,26 @@ export type Database = {
           created_at: string
           cross_sell_ids: string[]
           dealer_price: number
+          description: string | null
           fast_delivery: boolean
           heavy: boolean
           id: string
           image_url: string
           installation: boolean
           low_stock_threshold: number
+          model_name: string | null
           mrp: number
           name: string
           price: number
           rating: number
+          resolution: string | null
           retail_price: number
           reviews: number
           sku: string
           stock: number
+          technical_capacity: string | null
+          voltage: string | null
+          warranty_period: string | null
         }[]
       }
       has_role: {

@@ -17,6 +17,7 @@ import {
   Tag,
   Pencil,
 } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
 import { toast } from "sonner";
 import {
   adminProductsQueryOptions,
@@ -27,6 +28,18 @@ import {
 } from "@/lib/products-api";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 export const Route = createFileRoute("/admin/dashboard")({
   head: () => ({
@@ -35,7 +48,7 @@ export const Route = createFileRoute("/admin/dashboard")({
   component: StockDashboard,
 });
 
-type Tab = "stock" | "categories" | "dealers";
+type Tab = "overview" | "stock" | "categories" | "dealers";
 
 function StockDashboard() {
   const { data: products = [], isLoading } = useQuery(adminProductsQueryOptions());
@@ -46,7 +59,19 @@ function StockDashboard() {
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<string>("All");
+  const [brand, setBrand] = useState<string>("All");
   const [tab, setTab] = useState<Tab>("stock");
+  const { data: orders = [] } = useQuery({
+    queryKey: ["orders", "dashboard-overview"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("created_at,total,status")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const { data: pendingDealers = [] } = useQuery({
     queryKey: ["dealers", "pending"],
@@ -65,14 +90,19 @@ function StockDashboard() {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
       const matchCat = cat === "All" || p.category === cat;
+      const matchBrand = brand === "All" || p.brand === brand;
       const matchQ =
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.brand.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q);
-      return matchCat && matchQ;
+      return matchCat && matchBrand && matchQ;
     });
-  }, [products, query, cat]);
+  }, [products, query, cat, brand]);
+  const brands = useMemo(
+    () => ["All", ...Array.from(new Set(products.map((p) => p.brand))).sort((a, b) => a.localeCompare(b))],
+    [products],
+  );
 
   const lowCount = products.filter((p) => stockStatus(p) === "low").length;
   const outCount = products.filter((p) => stockStatus(p) === "out").length;
@@ -110,6 +140,7 @@ function StockDashboard() {
         <div className="mb-4 flex flex-wrap rounded-xl bg-surface p-1 text-sm font-semibold">
           {(
             [
+              { id: "overview", label: "Overview" },
               { id: "stock", label: "Inventory" },
               { id: "categories", label: "Categories" },
               { id: "dealers", label: `Pending Dealers (${pendingDealers.length})` },
@@ -139,21 +170,31 @@ function StockDashboard() {
                 className="w-full rounded-2xl border border-border bg-input pl-9 pr-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:bg-card focus:ring-2 focus:ring-primary/20"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {["All", ...categories.map((c) => c.name)].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCat(c)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-xs font-semibold transition-all",
-                    cat === c
-                      ? "border-primary bg-primary text-primary-foreground shadow-button"
-                      : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground",
-                  )}
-                >
-                  {c}
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <Select value={cat} onValueChange={setCat}>
+                <SelectTrigger className="w-[180px] rounded-xl bg-card">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["All", ...categories.map((c) => c.name)].map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={brand} onValueChange={setBrand}>
+                <SelectTrigger className="w-[180px] rounded-xl bg-card">
+                  <SelectValue placeholder="Filter by brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b} value={b}>
+                      {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}
@@ -167,6 +208,7 @@ function StockDashboard() {
       )}
 
       {tab === "categories" && <CategoriesPanel />}
+      {tab === "overview" && <OverviewTab products={products} orders={orders} />}
 
       {tab === "stock" && (
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -223,7 +265,12 @@ function StockDashboard() {
                           {formatINR(p.price)}
                         </td>
                         <td className="px-5 py-4">
-                          <StatusBadge status={s} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={s} />
+                            <Badge variant={p.active ? "default" : "secondary"} className="rounded-full text-[11px]">
+                              {p.active ? "Published" : "Hidden"}
+                            </Badge>
+                          </div>
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="flex justify-end gap-1.5">
@@ -281,15 +328,98 @@ function StockDashboard() {
 
 function StatusBadge({ status }: { status: ReturnType<typeof stockStatus> }) {
   const map = {
-    in: { label: "In stock", cls: "bg-primary-soft text-primary-deep" },
-    low: { label: "Low stock", cls: "bg-warning/20 text-warning-foreground" },
-    out: { label: "Out of stock", cls: "bg-destructive/15 text-destructive" },
+    in: { label: "In stock", cls: "border-transparent bg-primary-soft text-primary-deep" },
+    low: { label: "Low stock", cls: "border-transparent bg-warning/20 text-warning-foreground" },
+    out: { label: "Out of stock", cls: "border-transparent bg-destructive/15 text-destructive" },
   } as const;
   const v = map[status];
+  return <Badge className={cn("rounded-full text-[11px] font-semibold", v.cls)}>{v.label}</Badge>;
+}
+
+function OverviewTab({
+  products,
+  orders,
+}: {
+  products: Product[];
+  orders: Array<{ created_at: string; total: number; status: string }>;
+}) {
+  const chartData = useMemo(() => {
+    const map = new Map<string, { day: string; revenue: number; orders: number }>();
+    const since = new Date();
+    since.setDate(since.getDate() - 13);
+
+    for (const order of orders) {
+      const dt = new Date(order.created_at);
+      if (dt < since) continue;
+      const day = dt.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+      const current = map.get(day) ?? { day, revenue: 0, orders: 0 };
+      current.revenue += Number(order.total ?? 0);
+      current.orders += 1;
+      map.set(day, current);
+    }
+    return Array.from(map.values());
+  }, [orders]);
+
+  const chartConfig = {
+    revenue: { label: "Revenue", color: "var(--color-primary)" },
+    orders: { label: "Orders", color: "var(--color-success)" },
+  } satisfies ChartConfig;
+
+  const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total ?? 0), 0);
+
   return (
-    <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold", v.cls)}>
-      {v.label}
-    </span>
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card>
+        <CardHeader>
+          <CardDescription>Total Revenue</CardDescription>
+          <CardTitle>{formatINR(totalRevenue)}</CardTitle>
+        </CardHeader>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardDescription>Total Orders</CardDescription>
+          <CardTitle>{orders.length}</CardTitle>
+        </CardHeader>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardDescription>Products In Catalog</CardDescription>
+          <CardTitle>{products.length}</CardTitle>
+        </CardHeader>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Revenue Trend (Last 14 days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[280px] w-full">
+            <AreaChart data={chartData}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Area dataKey="revenue" type="monotone" fill="var(--color-revenue)" fillOpacity={0.25} stroke="var(--color-revenue)" />
+            </AreaChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Trend (Last 14 days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[280px] w-full">
+            <LineChart data={chartData}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line dataKey="orders" type="monotone" stroke="var(--color-orders)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -552,10 +682,18 @@ function AddProductDrawer({
     id: "",
     sku: "",
     name: "",
-    brand: "",
+    brandName: "",
+    modelName: "",
     category: categories[0] ?? "",
-    price: 0,
+    description: "",
+    status: "in_stock" as "in_stock" | "out_of_stock",
+    voltage: "",
+    ahRating: "",
+    resolution: "",
+    warrantyPeriod: "",
+    technicalCapacity: "",
     mrp: 0,
+    retailPrice: 0,
     dealerPrice: "" as number | "",
     stock: 0,
     lowThreshold: 5,
@@ -568,9 +706,6 @@ function AddProductDrawer({
     }
   }, [open, categories]);
 
-  const inputCls =
-    "w-full rounded-2xl border border-border bg-input px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:bg-card focus:ring-2 focus:ring-primary/20";
-
   const slugify = (s: string) =>
     s
       .toLowerCase()
@@ -579,33 +714,39 @@ function AddProductDrawer({
       .slice(0, 40);
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.brand.trim() || !form.category) {
+    if (!form.name.trim() || !form.brandName.trim() || !form.category) {
       toast.error("Name, brand and category are required");
       return;
     }
-    if (!form.price || !form.mrp) {
-      toast.error("Set retail price and MRP");
+    if (!form.retailPrice || !form.mrp) {
+      toast.error("Set MRP and retail price");
       return;
     }
     setSaving(true);
     try {
-      const id = form.id.trim() || `${slugify(form.brand)}-${slugify(form.name)}-${Date.now().toString(36)}`;
-      const sku = form.sku.trim() || id.toUpperCase();
+      const safeStr = (v: unknown): string =>
+        typeof v === "string" ? v : v != null && typeof v === "object" && "secure_url" in (v as Record<string, unknown>) ? String((v as Record<string, unknown>).secure_url) : String(v ?? "");
+
+      const id = safeStr(form.id).trim() || `${slugify(form.brandName)}-${slugify(form.name)}-${Date.now().toString(36)}`;
+      const sku = safeStr(form.sku).trim() || id.toUpperCase();
+      // Only send columns that actually exist in the products table.
+      // Missing from DB: brand_name, model_name, description, voltage,
+      // ah_rating, resolution, warranty_period, technical_capacity.
       const { error } = await supabase.from("products").insert({
         id,
         sku,
-        name: form.name.trim(),
-        brand: form.brand.trim(),
-        category: form.category,
-        price: form.price,
-        retail_price: form.price,
+        name: safeStr(form.name).trim(),
+        brand: safeStr(form.brandName).trim(),
+        category: safeStr(form.category),
+        price: form.retailPrice,
+        retail_price: form.retailPrice,
         mrp: form.mrp,
         dealer_price: form.dealerPrice === "" ? null : Number(form.dealerPrice),
         stock: form.stock,
         low_stock_threshold: form.lowThreshold,
-        image_url: form.imageUrl.trim() || null,
-        active: true,
-      });
+        image_url: safeStr(form.imageUrl).trim() || null,
+        active: form.status === "in_stock",
+      } as any);
       if (error) throw error;
       toast.success("Item added");
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -614,10 +755,18 @@ function AddProductDrawer({
         id: "",
         sku: "",
         name: "",
-        brand: "",
+        brandName: "",
+        modelName: "",
         category: categories[0] ?? "",
-        price: 0,
+        description: "",
+        status: "in_stock",
+        voltage: "",
+        ahRating: "",
+        resolution: "",
+        warrantyPeriod: "",
+        technicalCapacity: "",
         mrp: 0,
+        retailPrice: 0,
         dealerPrice: "",
         stock: 0,
         lowThreshold: 5,
@@ -663,124 +812,195 @@ function AddProductDrawer({
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          <Field label="Name">
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Luminous Eco Volt 1100"
-              className={inputCls}
-            />
-          </Field>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Basic Info</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Field label="Name">
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Luminous Eco Volt 1100"
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Brand">
+                  <Input
+                    value={form.brandName}
+                    onChange={(e) => setForm({ ...form, brandName: e.target.value })}
+                    placeholder="Luminous"
+                  />
+                </Field>
+                <Field label="Model">
+                  <Input
+                    value={form.modelName}
+                    onChange={(e) => setForm({ ...form, modelName: e.target.value })}
+                    placeholder="Eco Volt 1100"
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Category">
+                  <Select
+                    value={form.category}
+                    onValueChange={(value) => setForm({ ...form, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Status">
+                  <Select
+                    value={form.status}
+                    onValueChange={(value: "in_stock" | "out_of_stock") =>
+                      setForm({ ...form, status: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="in_stock">In Stock</SelectItem>
+                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Description">
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Short product overview for catalog and PDP"
+                  rows={3}
+                />
+              </Field>
+            </CardContent>
+          </Card>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Brand">
-              <input
-                value={form.brand}
-                onChange={(e) => setForm({ ...form, brand: e.target.value })}
-                placeholder="Luminous"
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Category">
-              <select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className={inputCls}
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Pricing</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="MRP (₹)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.mrp || ""}
+                  onChange={(e) => setForm({ ...form, mrp: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Retail Price (₹)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.retailPrice || ""}
+                  onChange={(e) => setForm({ ...form, retailPrice: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Dealer Price (₹)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.dealerPrice}
+                  onChange={(e) =>
+                    setForm({ ...form, dealerPrice: e.target.value === "" ? "" : Number(e.target.value) })
+                  }
+                />
+              </Field>
+            </CardContent>
+          </Card>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="SKU (auto if blank)">
-              <input
-                value={form.sku}
-                onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                placeholder="LUM-EV-1100"
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Product ID (auto if blank)">
-              <input
-                value={form.id}
-                onChange={(e) => setForm({ ...form, id: e.target.value })}
-                placeholder="auto"
-                className={inputCls}
-              />
-            </Field>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Technical Specs</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Voltage">
+                <Input value={form.voltage} onChange={(e) => setForm({ ...form, voltage: e.target.value })} placeholder="12V / 24V" />
+              </Field>
+              <Field label="AH">
+                <Input value={form.ahRating} onChange={(e) => setForm({ ...form, ahRating: e.target.value })} placeholder="150 AH" />
+              </Field>
+              <Field label="Resolution">
+                <Input value={form.resolution} onChange={(e) => setForm({ ...form, resolution: e.target.value })} placeholder="5MP" />
+              </Field>
+              <Field label="Warranty">
+                <Input value={form.warrantyPeriod} onChange={(e) => setForm({ ...form, warrantyPeriod: e.target.value })} placeholder="24 months" />
+              </Field>
+              <Field label="Technical Capacity">
+                <Input
+                  value={form.technicalCapacity}
+                  onChange={(e) => setForm({ ...form, technicalCapacity: e.target.value })}
+                  placeholder="1100 VA / 12V"
+                />
+              </Field>
+            </CardContent>
+          </Card>
 
-          <Field label="Image URL">
-            <input
-              value={form.imageUrl}
-              onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-              placeholder="https://…/image.jpg"
-              className={inputCls}
-            />
-          </Field>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Inventory</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+              <Field label="Current Stock">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Low Stock Alert">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.lowThreshold}
+                  onChange={(e) => setForm({ ...form, lowThreshold: Number(e.target.value) })}
+                />
+              </Field>
+            </CardContent>
+          </Card>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Retail price (₹)">
-              <input
-                type="number"
-                min={0}
-                value={form.price || ""}
-                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="MRP (₹)">
-              <input
-                type="number"
-                min={0}
-                value={form.mrp || ""}
-                onChange={(e) => setForm({ ...form, mrp: Number(e.target.value) })}
-                className={inputCls}
-              />
-            </Field>
-          </div>
-
-          <Field label="Dealer price (₹) — optional">
-            <input
-              type="number"
-              min={0}
-              value={form.dealerPrice}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  dealerPrice: e.target.value === "" ? "" : Number(e.target.value),
-                })
-              }
-              placeholder="visible only to approved dealers"
-              className={inputCls}
-            />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Stock">
-              <input
-                type="number"
-                min={0}
-                value={form.stock}
-                onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Low-stock alert">
-              <input
-                type="number"
-                min={0}
-                value={form.lowThreshold}
-                onChange={(e) => setForm({ ...form, lowThreshold: Number(e.target.value) })}
-                className={inputCls}
-              />
-            </Field>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Identifiers & Media</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="SKU (auto if blank)">
+                  <Input
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                    placeholder="LUM-EV-1100"
+                  />
+                </Field>
+                <Field label="Product ID (auto if blank)">
+                  <Input
+                    value={form.id}
+                    onChange={(e) => setForm({ ...form, id: e.target.value })}
+                    placeholder="auto"
+                  />
+                </Field>
+              </div>
+              <Field label="Image URL">
+                <Input
+                  value={form.imageUrl}
+                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  placeholder="https://.../image.jpg"
+                />
+              </Field>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-border p-5">
@@ -870,22 +1090,44 @@ function EditDrawer({
   categories: string[];
 }) {
   const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [modelName, setModelName] = useState("");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<"in_stock" | "out_of_stock">("in_stock");
   const [stock, setStock] = useState(0);
-  const [price, setPrice] = useState(0);
+  const [retailPrice, setRetailPrice] = useState(0);
   const [mrp, setMrp] = useState(0);
   const [dealerPrice, setDealerPrice] = useState<number | "">("");
   const [category, setCategory] = useState<string>("");
+  const [voltage, setVoltage] = useState("");
+  const [ahRating, setAhRating] = useState("");
+  const [resolution, setResolution] = useState("");
+  const [warrantyPeriod, setWarrantyPeriod] = useState("");
+  const [technicalCapacity, setTechnicalCapacity] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [lowThreshold, setLowThreshold] = useState(5);
   const [adjustment, setAdjustment] = useState(1);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (product) {
+      setName(product.name);
+      setBrandName(product.brandName || product.brand);
+      setModelName(product.modelName || product.sku);
+      setDescription(product.description || "");
+      setStatus(product.active ? "in_stock" : "out_of_stock");
       setStock(product.stock);
-      setPrice(product.price);
+      setRetailPrice(product.retailPrice);
       setMrp(product.mrp);
       setDealerPrice(product.dealerPrice ?? "");
       setCategory(product.category);
+      setVoltage(product.voltage ?? "");
+      setAhRating(product.ahRating ?? "");
+      setResolution(product.resolution ?? "");
+      setWarrantyPeriod(product.warrantyPeriod ?? "");
+      setTechnicalCapacity(product.technicalCapacity ?? "");
+      setImageUrl(product.image);
       setLowThreshold(product.lowStockThreshold);
       setAdjustment(1);
     }
@@ -897,17 +1139,27 @@ function EditDrawer({
     if (!product) return;
     setSaving(true);
     try {
+      const safeStr = (v: unknown): string =>
+        typeof v === "string" ? v : v != null && typeof v === "object" && "secure_url" in (v as Record<string, unknown>) ? String((v as Record<string, unknown>).secure_url) : String(v ?? "");
+
+      // Only send columns that actually exist in the products table.
+      // Missing from DB: brand_name, model_name, description, voltage,
+      // ah_rating, resolution, warranty_period, technical_capacity.
       const { error } = await supabase
         .from("products")
         .update({
+          name: safeStr(name).trim(),
+          brand: safeStr(brandName).trim(),
+          category: safeStr(category),
           stock,
-          price,
+          price: retailPrice,
           mrp,
-          retail_price: price,
-          category,
+          retail_price: retailPrice,
           dealer_price: dealerPrice === "" ? null : Number(dealerPrice),
+          image_url: safeStr(imageUrl).trim() || null,
           low_stock_threshold: lowThreshold,
-        })
+          active: status === "in_stock",
+        } as any)
         .eq("id", product.id);
       if (error) throw error;
       toast.success("Item updated");
@@ -919,9 +1171,6 @@ function EditDrawer({
       setSaving(false);
     }
   };
-
-  const inputCls =
-    "w-full rounded-2xl border border-border bg-input px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary focus:bg-card focus:ring-2 focus:ring-primary/20";
 
   const adjustStock = (delta: number) => setStock((c) => Math.max(0, c + delta));
 
@@ -984,14 +1233,14 @@ function EditDrawer({
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <input
+                    <Input
                       type="number"
                       min={1}
                       value={adjustment}
                       onChange={(e) =>
                         setAdjustment(Math.max(1, Number(e.target.value) || 1))
                       }
-                      className="w-16 rounded-xl bg-input px-2 py-1.5 text-center text-sm font-semibold tabular-nums outline-none"
+                      className="w-16 text-center text-sm font-semibold tabular-nums"
                     />
                     <button
                       type="button"
@@ -1005,77 +1254,119 @@ function EditDrawer({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Current stock">
-                  <input
-                    type="number"
-                    min={0}
-                    value={stock}
-                    onChange={(e) => setStock(Number(e.target.value))}
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="Low-stock alert">
-                  <input
-                    type="number"
-                    min={0}
-                    value={lowThreshold}
-                    onChange={(e) => setLowThreshold(Number(e.target.value))}
-                    className={inputCls}
-                  />
-                </Field>
-              </div>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Basic Info</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Field label="Name">
+                    <Input value={name} onChange={(e) => setName(e.target.value)} />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Brand">
+                      <Input value={brandName} onChange={(e) => setBrandName(e.target.value)} />
+                    </Field>
+                    <Field label="Model">
+                      <Input value={modelName} onChange={(e) => setModelName(e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Category">
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                          {categories.indexOf(category) === -1 && category && (
+                            <SelectItem value={category}>{category}</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Status">
+                      <Select value={status} onValueChange={(value: "in_stock" | "out_of_stock") => setStatus(value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in_stock">In Stock</SelectItem>
+                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                  <Field label="Description">
+                    <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+                  </Field>
+                  <Field label="Image URL">
+                    <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://.../image.jpg" />
+                  </Field>
+                </CardContent>
+              </Card>
 
-              <Field label="Category">
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className={inputCls}
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                  {categories.indexOf(category) === -1 && category && (
-                    <option value={category}>{category}</option>
-                  )}
-                </select>
-              </Field>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Pricing</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Field label="MRP (₹)">
+                    <Input type="number" min={0} value={mrp} onChange={(e) => setMrp(Number(e.target.value))} />
+                  </Field>
+                  <Field label="Retail Price (₹)">
+                    <Input type="number" min={0} value={retailPrice} onChange={(e) => setRetailPrice(Number(e.target.value))} />
+                  </Field>
+                  <Field label="Dealer Price (₹)">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={dealerPrice}
+                      onChange={(e) => setDealerPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                    />
+                  </Field>
+                </CardContent>
+              </Card>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Retail price (₹)">
-                  <input
-                    type="number"
-                    min={0}
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className={inputCls}
-                  />
-                </Field>
-                <Field label="MRP (₹)">
-                  <input
-                    type="number"
-                    min={0}
-                    value={mrp}
-                    onChange={(e) => setMrp(Number(e.target.value))}
-                    className={inputCls}
-                  />
-                </Field>
-              </div>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Technical Specs</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Voltage">
+                    <Input value={voltage} onChange={(e) => setVoltage(e.target.value)} />
+                  </Field>
+                  <Field label="AH">
+                    <Input value={ahRating} onChange={(e) => setAhRating(e.target.value)} />
+                  </Field>
+                  <Field label="Resolution">
+                    <Input value={resolution} onChange={(e) => setResolution(e.target.value)} />
+                  </Field>
+                  <Field label="Warranty">
+                    <Input value={warrantyPeriod} onChange={(e) => setWarrantyPeriod(e.target.value)} />
+                  </Field>
+                  <Field label="Technical Capacity">
+                    <Input value={technicalCapacity} onChange={(e) => setTechnicalCapacity(e.target.value)} />
+                  </Field>
+                </CardContent>
+              </Card>
 
-              <Field label="Dealer price (₹)">
-                <input
-                  type="number"
-                  min={0}
-                  value={dealerPrice}
-                  onChange={(e) =>
-                    setDealerPrice(e.target.value === "" ? "" : Number(e.target.value))
-                  }
-                  className={inputCls}
-                  placeholder="private B2B price"
-                />
-              </Field>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Inventory</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-3">
+                  <Field label="Current stock">
+                    <Input type="number" min={0} value={stock} onChange={(e) => setStock(Number(e.target.value))} />
+                  </Field>
+                  <Field label="Low-stock alert">
+                    <Input type="number" min={0} value={lowThreshold} onChange={(e) => setLowThreshold(Number(e.target.value))} />
+                  </Field>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-border p-5">

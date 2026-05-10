@@ -19,6 +19,13 @@ function normalizeRedirect(redirect?: string) {
   return redirect.startsWith("/") ? (redirect as "/") : "/";
 }
 
+function resolveSignedInRedirect(target: string, isAdmin: boolean, isDealer: boolean) {
+  if (target === "/admin" && isAdmin) return "/admin/dashboard" as const;
+  if (target.startsWith("/admin") && isAdmin) return target as "/";
+  if (target.startsWith("/dealer") && isDealer) return target as "/";
+  return target as "/";
+}
+
 const searchSchema = z.object({
   redirect: z.string().optional(),
   mode: z.enum(["signin", "signup"]).optional(),
@@ -57,12 +64,14 @@ function AuthPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Redirect if already signed in: honor dealer/admin intent first, then role defaults.
+  // The `loading` flag is true until both the session and roles have been resolved,
+  // so we can safely rely on `isAdmin` / `isDealer` once loading is false.
   useEffect(() => {
     if (loading || !isAuthenticated) return;
-    if (redirectTarget.startsWith("/dealer") && isDealer) {
-      navigate({ to: redirectTarget, replace: true });
-    } else if (redirectTarget.startsWith("/admin") && isAdmin) {
-      navigate({ to: redirectTarget, replace: true });
+
+    const roleRedirect = resolveSignedInRedirect(redirectTarget, isAdmin, isDealer);
+    if ((redirectTarget.startsWith("/dealer") && isDealer) || (redirectTarget.startsWith("/admin") && isAdmin)) {
+      navigate({ to: roleRedirect, replace: true });
     } else if (isAdmin) {
       navigate({ to: "/admin/dashboard", replace: true });
     } else if (isDealer) {

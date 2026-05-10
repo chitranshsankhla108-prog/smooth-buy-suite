@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { ShieldCheck, Truck, Wrench, Building2, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ShieldCheck, Truck, Building2, Sparkles, Search } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { productsQueryOptions, categoriesQueryOptions } from "@/lib/products-api";
 import { cn } from "@/lib/utils";
@@ -14,27 +14,38 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Discover inverters, batteries, CCTV, solar panels and home appliances at Mayur Electronics. Genuine brands with installation across India.",
+          "Discover inverters, batteries, CCTV, solar panels and home appliances at Mayur Electronics. Genuine brands with fast delivery across India.",
       },
     ],
   }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(productsQueryOptions()),
-      queryClient.ensureQueryData(categoriesQueryOptions()),
+      queryClient.ensureQueryData(productsQueryOptions()).catch(() => []),
+      queryClient.ensureQueryData(categoriesQueryOptions()).catch(() => []),
     ]),
   component: HomePage,
 });
 
 function HomePage() {
-  const { data: products } = useSuspenseQuery(productsQueryOptions());
+  const { data: products = [] } = useQuery(productsQueryOptions());
   const { data: categories = [] } = useQuery(categoriesQueryOptions());
   const { isDealer } = useAuth();
   const [active, setActive] = useState<string>("All");
+  const [search, setSearch] = useState("");
   type SortKey = "featured" | "price-asc" | "price-desc" | "newest";
   const [sort, setSort] = useState<SortKey>("featured");
 
-  const filtered = active === "All" ? products : products.filter((p) => p.category === active);
+  const normalizedSearch = search.trim().toLowerCase();
+  const filtered = products.filter((p) => {
+    const matchCategory = active === "All" || p.category === active;
+    const matchSearch =
+      !normalizedSearch ||
+      p.name.toLowerCase().includes(normalizedSearch) ||
+      p.brand.toLowerCase().includes(normalizedSearch) ||
+      p.sku.toLowerCase().includes(normalizedSearch) ||
+      p.modelName.toLowerCase().includes(normalizedSearch);
+    return matchCategory && matchSearch;
+  });
   const effectivePrice = (p: typeof products[number]) =>
     isDealer && p.dealerPrice != null ? p.dealerPrice : p.retailPrice;
   const visible = [...filtered].sort((a, b) => {
@@ -87,7 +98,7 @@ function HomePage() {
               <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
                 {isDealer
                   ? "Your regular shopping experience with confidential dealer-only pricing across eligible products."
-                  : "Genuine brands, transparent pricing, installation included. Shipped fast across India by Mayur Electronics."}
+                  : "Genuine brands, transparent pricing, warranty backed. Shipped fast across India by Mayur Electronics."}
               </p>
 
               <div className="mt-7 flex flex-wrap gap-3">
@@ -120,9 +131,9 @@ function HomePage() {
             <div id="trust" className="grid grid-cols-2 gap-3 sm:gap-4">
               {[
                 { icon: Truck, title: "Fast Delivery", body: "2–4 day shipping in metros" },
-                { icon: Wrench, title: "Installation", body: "Certified technicians on-site" },
                 { icon: ShieldCheck, title: "Genuine warranty", body: "Brand-backed, no fakes" },
                 { icon: Building2, title: "Pan-India service", body: "Stores across India" },
+                { icon: Sparkles, title: "Premium support", body: "Dedicated help, always" },
               ].map(({ icon: Icon, title, body }) => (
                 <div
                   key={title}
@@ -152,6 +163,15 @@ function HomePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search product, brand, model..."
+                className="w-full rounded-2xl border border-border bg-card py-2 pl-9 pr-3 text-xs font-medium outline-none transition-colors focus:border-primary focus:bg-background focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
             <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
               {filters.map((c) => (
                 <button
@@ -200,6 +220,11 @@ function HomePage() {
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
+        {visible.length === 0 && (
+          <div className="mt-8 rounded-2xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            No products found for your current search/filter.
+          </div>
+        )}
       </section>
 
       <footer className="border-t border-border bg-surface/60">

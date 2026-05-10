@@ -32,12 +32,16 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
-          <Link to="/" className="transition-colors hover:text-foreground">
-            Shop
-          </Link>
-          <Link to="/checkout" className="transition-colors hover:text-foreground">
-            Checkout
-          </Link>
+          {!isAdmin && (
+            <>
+              <Link to="/" className="transition-colors hover:text-foreground">
+                Shop
+              </Link>
+              <Link to="/checkout" className="transition-colors hover:text-foreground">
+                Checkout
+              </Link>
+            </>
+          )}
           {isAdmin && (
             <Link
               to="/admin"
@@ -78,18 +82,20 @@ export function SiteHeader() {
             </Link>
           )}
 
-          <button
-            onClick={() => cartStore.openDrawer()}
-            className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium shadow-soft transition-all hover:border-border-strong hover:bg-surface-hover"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            <span className="hidden sm:inline">Cart</span>
-            {itemCount > 0 && (
-              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-                {itemCount}
-              </span>
-            )}
-          </button>
+          {!isAdmin && (
+            <button
+              onClick={() => cartStore.openDrawer()}
+              className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium shadow-soft transition-all hover:border-border-strong hover:bg-surface-hover"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline">Cart</span>
+              {itemCount > 0 && (
+                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </header>

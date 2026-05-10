@@ -50,7 +50,7 @@ function AdminOverview() {
         <h2 className="text-base font-semibold">Welcome to the Mayur Electronics admin</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Use the sidebar to manage inventory, review pending orders, and configure payment details
-          (UPI, Paytm, bank, COD) shown to customers at checkout.
+          (UPI, Paytm, bank transfer) shown to customers at checkout.
         </p>
       </div>
     </div>

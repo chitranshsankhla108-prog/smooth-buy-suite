@@ -48,7 +48,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       {
         name: "description",
         content:
-          "Inverters, batteries, CCTV, solar and appliances. Retail and B2B bulk pricing with installation across India.",
+          "Inverters, batteries, CCTV, solar and appliances. Retail and B2B bulk pricing across India.",
       },
       { name: "author", content: "Mayur Electronics" },
       { property: "og:title", content: "Mayur Electronics — Soft Corporate Electronics Marketplace" },

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { X, Star, Truck, Wrench, ShieldCheck, ShoppingCart, Check, FileDown } from "lucide-react";
+import { X, Star, Truck, ShieldCheck, ShoppingCart, Check, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cartStore } from "@/lib/cart-store";
 import { formatINR, productPriceForRole, type Product } from "@/lib/products-api";
@@ -11,30 +11,14 @@ type Props = {
 };
 
 function deriveSpecs(p: Product) {
-  const isPower = p.category === "Power";
-  const isSecurity = p.category === "Security";
-  const isSolar = p.category === "Solar";
-
   return [
-    { label: "Voltage", value: isPower ? "12V / 24V Compatible" : isSolar ? "24V DC" : "220V AC" },
-    { label: "AH", value: isPower ? "150 AH" : isSolar ? "100 AH Equivalent" : "N/A" },
-    { label: "Resolution", value: isSecurity ? "5MP Ultra HD" : "N/A" },
-    {
-      label: "Warranty",
-      value: isPower ? "24 months" : isSecurity ? "12 months" : isSolar ? "60 months" : "12 months",
-    },
-    {
-      label: "Technical Capacity",
-      value: isPower
-        ? "1100 VA / 12V"
-        : isSecurity
-          ? "5MP · IP67"
-          : isSolar
-            ? "330 W · Mono-PERC"
-            : "Standard",
-    },
-    { label: "Brand", value: p.brand },
-    { label: "Model", value: p.sku },
+    { label: "Voltage", value: p.voltage || "N/A" },
+    { label: "AH", value: p.ahRating || "N/A" },
+    { label: "Resolution", value: p.resolution || "N/A" },
+    { label: "Warranty", value: p.warrantyPeriod || "N/A" },
+    { label: "Technical Capacity", value: p.technicalCapacity || "N/A" },
+    { label: "Brand", value: p.brandName || p.brand },
+    { label: "Model", value: p.modelName || p.sku },
     { label: "In stock", value: p.stock > 0 ? `${p.stock} units` : "Out of stock" },
   ];
 }
@@ -159,9 +143,6 @@ export function ProductDetailModal({ product, onClose }: Props) {
             <div className="flex flex-wrap gap-2 text-[11px]">
               {product.fastDelivery && (
                 <Pill icon={Truck}>Fast Delivery</Pill>
-              )}
-              {product.installation && (
-                <Pill icon={Wrench}>Installation Available</Pill>
               )}
               <Pill icon={ShieldCheck}>Genuine Warranty</Pill>
             </div>

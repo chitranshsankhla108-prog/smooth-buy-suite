@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Lock, MapPin, Wrench, ArrowRight, Upload, Loader2, AlertTriangle } from "lucide-react";
+import { Check, Lock, MapPin, ArrowRight, Upload, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/checkout")({
 
 const STEPS = ["Info", "Shipping", "Payment"] as const;
 type Step = (typeof STEPS)[number];
-const INSTALL_FEE = 499;
+
 
 const infoSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -45,7 +45,7 @@ function CheckoutPage() {
   const { data: paySettings } = useQuery(paymentSettingsQueryOptions());
 
   const [step, setStep] = useState<Step>("Info");
-  const [installation, setInstallation] = useState(true);
+
   const [shipping, setShipping] = useState<"standard" | "express">("standard");
   const [info, setInfo] = useState({
     name: "",
@@ -59,15 +59,14 @@ function CheckoutPage() {
     pincode: "",
     landmark: "",
   });
-  const [method, setMethod] = useState<"upi_qr" | "paytm" | "bank_transfer" | "cod">("upi_qr");
+  const [method, setMethod] = useState<"upi_qr" | "paytm" | "bank_transfer">("upi_qr");
   const [paymentRef, setPaymentRef] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const shippingFee = shipping === "express" ? 299 : 0;
-  const installFee = installation ? INSTALL_FEE : 0;
   const tax = Math.round(subtotal * 0.18);
-  const total = subtotal + shippingFee + installFee + tax;
+  const total = subtotal + shippingFee + tax;
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -97,7 +96,7 @@ function CheckoutPage() {
       return;
     }
     if (items.length === 0) return;
-    if (method !== "cod" && !proofFile && !paymentRef) {
+    if (!proofFile && !paymentRef) {
       toast.error("Please upload payment proof or enter a reference number");
       return;
     }
@@ -114,7 +113,7 @@ function CheckoutPage() {
         _shipping_pincode: ship.pincode,
         _shipping_landmark: ship.landmark || "",
         _shipping_speed: shipping,
-        _installation: installation,
+        _installation: false,
         _payment_method: method,
         _items: items.map((i) => ({ product_id: i.product.id, qty: i.qty })),
       });
@@ -131,16 +130,14 @@ function CheckoutPage() {
       }
 
       // Update order with proof + reference, set status
-      if (method !== "cod") {
-        await supabase
-          .from("orders")
-          .update({
-            payment_reference: paymentRef || null,
-            payment_proof_url: proofUrl,
-            status: "awaiting_verification",
-          })
-          .eq("id", orderId as string);
-      }
+      await supabase
+        .from("orders")
+        .update({
+          payment_reference: paymentRef || null,
+          payment_proof_url: proofUrl,
+          status: "awaiting_verification",
+        })
+        .eq("id", orderId as string);
 
       cartStore.clear();
       toast.success("Order placed successfully!");
@@ -197,8 +194,6 @@ function CheckoutPage() {
                 <ShippingStep
                   ship={ship}
                   setShip={setShip}
-                  installation={installation}
-                  setInstallation={setInstallation}
                   shipping={shipping}
                   setShipping={setShipping}
                 />
@@ -253,7 +248,6 @@ function CheckoutPage() {
                 subtotal={subtotal}
                 savings={savings}
                 shippingFee={shippingFee}
-                installFee={installFee}
                 tax={tax}
                 total={total}
               />
@@ -372,15 +366,11 @@ function InfoStep({ info, setInfo }: { info: { name: string; email: string; phon
 function ShippingStep({
   ship,
   setShip,
-  installation,
-  setInstallation,
   shipping,
   setShipping,
 }: {
   ship: { address: string; city: string; state: string; pincode: string; landmark: string };
   setShip: (v: typeof ship) => void;
-  installation: boolean;
-  setInstallation: (b: boolean) => void;
   shipping: "standard" | "express";
   setShipping: (s: "standard" | "express") => void;
 }) {
@@ -431,26 +421,6 @@ function ShippingStep({
             );
           })}
         </div>
-
-        <div className="mt-5 flex items-center justify-between rounded-xl border border-border bg-surface/60 p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-              <Wrench className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">Professional Installation</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Certified technician on-site · {formatINR(INSTALL_FEE)}</p>
-            </div>
-          </div>
-          <button
-            role="switch"
-            aria-checked={installation}
-            onClick={() => setInstallation(!installation)}
-            className={cn("relative h-7 w-12 flex-shrink-0 rounded-full transition-colors", installation ? "bg-primary" : "bg-border-strong")}
-          >
-            <span className={cn("absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-card shadow-soft transition-transform", installation && "translate-x-5")} />
-          </button>
-        </div>
       </Card>
     </>
   );
@@ -466,20 +436,19 @@ function PaymentStep({
   settings,
   total,
 }: {
-  method: "upi_qr" | "paytm" | "bank_transfer" | "cod";
-  setMethod: (m: "upi_qr" | "paytm" | "bank_transfer" | "cod") => void;
+  method: "upi_qr" | "paytm" | "bank_transfer";
+  setMethod: (m: "upi_qr" | "paytm" | "bank_transfer") => void;
   paymentRef: string;
   setPaymentRef: (s: string) => void;
   proofFile: File | null;
   setProofFile: (f: File | null) => void;
-  settings: { upi_id: string | null; paytm_id: string | null; bank_account_name: string | null; bank_account_number: string | null; bank_ifsc: string | null; bank_name: string | null; qr_code_url: string | null; cod_enabled: boolean; notes: string | null } | null | undefined;
+  settings: { upi_id: string | null; paytm_id: string | null; bank_account_name: string | null; bank_account_number: string | null; bank_ifsc: string | null; bank_name: string | null; qr_code_url: string | null; notes: string | null } | null | undefined;
   total: number;
 }) {
   const methods: Array<{ id: typeof method; label: string; show: boolean }> = [
     { id: "upi_qr", label: "UPI / QR", show: !!settings?.upi_id || !!settings?.qr_code_url },
     { id: "paytm", label: "Paytm", show: !!settings?.paytm_id },
     { id: "bank_transfer", label: "Bank Transfer", show: !!settings?.bank_account_number || !!settings?.bank_name },
-    { id: "cod", label: "Cash on Delivery", show: !!settings?.cod_enabled },
   ];
 
   return (
@@ -536,14 +505,8 @@ function PaymentStep({
         </div>
       )}
 
-      {method === "cod" && (
-        <p className="mt-5 rounded-xl bg-surface px-4 py-3 text-xs text-muted-foreground">
-          Pay in cash when your order arrives. ID verification may be required for orders above ₹25,000.
-        </p>
-      )}
 
-      {method !== "cod" && (
-        <div className="mt-5 space-y-4">
+      <div className="mt-5 space-y-4">
           <Field label="Payment reference / UTR (optional)">
             <input className={inputCls} value={paymentRef} onChange={(e) => setPaymentRef(e.target.value)} placeholder="UTR / Transaction ID" />
           </Field>
@@ -562,8 +525,7 @@ function PaymentStep({
           {settings?.notes && (
             <p className="rounded-lg bg-primary-soft/30 px-3 py-2 text-xs text-primary-deep">{settings.notes}</p>
           )}
-        </div>
-      )}
+      </div>
     </Card>
   );
 }
@@ -585,7 +547,6 @@ function OrderSummary({
   subtotal,
   savings,
   shippingFee,
-  installFee,
   tax,
   total,
 }: {
@@ -593,7 +554,6 @@ function OrderSummary({
   subtotal: number;
   savings: number;
   shippingFee: number;
-  installFee: number;
   tax: number;
   total: number;
 }) {
@@ -634,7 +594,6 @@ function OrderSummary({
           <Row label="Subtotal" value={formatINR(subtotal)} />
           {savings > 0 && <Row label="You save" value={formatINR(savings)} positive />}
           <Row label="Shipping" value={shippingFee === 0 ? "Free" : formatINR(shippingFee)} />
-          {installFee > 0 && <Row label="Installation" value={formatINR(installFee)} />}
           <Row label="Tax (18% GST)" value={formatINR(tax)} />
         </dl>
         <div className="mt-4 flex items-baseline justify-between border-t border-border/50 pt-4">

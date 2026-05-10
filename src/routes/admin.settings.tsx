@@ -23,7 +23,6 @@ function SettingsPage() {
     bank_ifsc: "",
     bank_name: "",
     qr_code_url: "",
-    cod_enabled: true,
     notes: "",
   });
   const [uploading, setUploading] = useState(false);
@@ -39,7 +38,6 @@ function SettingsPage() {
         bank_ifsc: settings.bank_ifsc ?? "",
         bank_name: settings.bank_name ?? "",
         qr_code_url: settings.qr_code_url ?? "",
-        cod_enabled: settings.cod_enabled,
         notes: settings.notes ?? "",
       });
     }
@@ -113,12 +111,7 @@ function SettingsPage() {
           <Field label="IFSC"><input className={inputCls} value={form.bank_ifsc} onChange={(e) => setForm({ ...form, bank_ifsc: e.target.value })} /></Field>
         </Section>
 
-        <Section title="Cash on Delivery">
-          <label className="flex items-center gap-3 sm:col-span-2">
-            <input type="checkbox" checked={form.cod_enabled} onChange={(e) => setForm({ ...form, cod_enabled: e.target.checked })} className="h-4 w-4 accent-primary" />
-            <span className="text-sm">Allow COD at checkout</span>
-          </label>
-        </Section>
+
 
         <Section title="Customer-visible notes">
           <Field label="Notes shown at checkout" full>

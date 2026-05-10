@@ -44,33 +44,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Subscribe FIRST (don't await async work in callback)
+    let cancelled = false;
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      if (cancelled) return;
       setSession(sess);
       if (sess?.user) {
-        // defer to avoid deadlocks
+        setLoading(true);
+        // Defer fetchRoles so the Supabase client has stored the session
+        // token internally before we make an authenticated query.
         setTimeout(() => {
-          fetchRoles(sess.user.id).then(setRoles);
+          if (cancelled) return;
+          fetchRoles(sess.user.id).then((r) => {
+            if (cancelled) return;
+            setRoles(r);
+            setLoading(false);
+          });
         }, 0);
       } else {
         setRoles([]);
-      }
-    });
-
-    // 2. Then check existing session
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      if (sess?.user) {
-        fetchRoles(sess.user.id).then((r) => {
-          setRoles(r);
-          setLoading(false);
-        });
-      } else {
         setLoading(false);
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo<AuthValue>(

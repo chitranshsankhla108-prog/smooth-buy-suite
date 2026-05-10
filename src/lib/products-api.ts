@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { queryOptions } from "@tanstack/react-query";
 import type { Database } from "@/integrations/supabase/types";
-import { resolveProductImage } from "./product-images";
 
 export type DBProduct = Database["public"]["Tables"]["products"]["Row"];
 type VisibleProduct = Database["public"]["Functions"]["get_visible_products"]["Returns"][number];
@@ -11,7 +10,10 @@ export type Product = {
   sku: string;
   name: string;
   brand: string;
+  brandName: string;
+  modelName: string;
   category: string;
+  description: string;
   price: number;
   retailPrice: number;
   dealerPrice: number | null;
@@ -28,6 +30,11 @@ export type Product = {
   bulkAvailable: boolean;
   fastDelivery: boolean;
   crossSellIds: string[];
+  voltage: string | null;
+  ahRating: string | null;
+  resolution: string | null;
+  warrantyPeriod: string | null;
+  technicalCapacity: string | null;
   active: boolean;
   createdAt: string | null;
 };
@@ -37,7 +44,10 @@ export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
   sku: p.sku,
   name: p.name,
   brand: p.brand,
+  brandName: p.brand_name ?? p.brand,
+  modelName: p.model_name ?? p.sku,
   category: String(p.category),
+  description: p.description ?? "",
   price: Number(p.price),
   retailPrice: Number(p.retail_price ?? p.price),
   dealerPrice: p.dealer_price !== null && p.dealer_price !== undefined ? Number(p.dealer_price) : null,
@@ -48,12 +58,17 @@ export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
   lowStockThreshold: p.low_stock_threshold,
   rating: Number(p.rating ?? 4.5),
   reviews: p.reviews ?? 0,
-  image: resolveProductImage(p.id, p.image_url),
+  image: p.image_url ?? "",
   heavy: !!p.heavy,
   installation: !!p.installation,
   bulkAvailable: !!p.bulk_available,
   fastDelivery: !!p.fast_delivery,
   crossSellIds: p.cross_sell_ids ?? [],
+  voltage: p.voltage ?? null,
+  ahRating: p.ah_rating ?? null,
+  resolution: p.resolution ?? null,
+  warrantyPeriod: p.warranty_period ?? null,
+  technicalCapacity: p.technical_capacity ?? null,
   active: p.active,
   createdAt: (p as { created_at?: string | null }).created_at ?? null,
 });

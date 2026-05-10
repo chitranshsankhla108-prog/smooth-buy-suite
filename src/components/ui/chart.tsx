@@ -220,9 +220,9 @@ const ChartTooltipContent = React.forwardRef<
                             {itemConfig?.label || item.name}
                           </span>
                         </div>
-                        {item.value && (
+                        {item.value !== undefined && item.value !== null && (
                           <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
+                            {formatTooltipValue(item.value)}
                           </span>
                         )}
                       </div>
@@ -237,6 +237,26 @@ const ChartTooltipContent = React.forwardRef<
   },
 );
 ChartTooltipContent.displayName = "ChartTooltip";
+
+function formatTooltipValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "number") return value.toLocaleString();
+  if (typeof value === "string") return value;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  try {
+    if (typeof value === "object" && "toLocaleString" in (value as object)) {
+      const rendered = (value as { toLocaleString: () => string }).toLocaleString();
+      if (rendered && rendered !== "[object Object]") return rendered;
+    }
+  } catch {
+    // fall through to stable fallback
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
 
 const ChartLegend = RechartsPrimitive.Legend;
 
