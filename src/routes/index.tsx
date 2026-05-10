@@ -151,31 +151,47 @@ function HomePage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
-            {filters.map((c) => (
-              <button
-                key={c.name}
-                onClick={() => setActive(c.name)}
-                className={cn(
-                  "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-                  active === c.name
-                    ? "bg-gradient-primary text-primary-foreground shadow-button"
-                    : "text-primary-deep hover:bg-primary-soft",
-                )}
-              >
-                {c.name}
-                <span
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
+              {filters.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => setActive(c.name)}
                   className={cn(
-                    "ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
                     active === c.name
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-primary-soft text-primary-deep",
+                      ? "bg-gradient-primary text-primary-foreground shadow-button"
+                      : "text-primary-deep hover:bg-primary-soft",
                   )}
                 >
-                  {c.count}
-                </span>
-              </button>
-            ))}
+                  {c.name}
+                  <span
+                    className={cn(
+                      "ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                      active === c.name
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-primary-soft text-primary-deep",
+                    )}
+                  >
+                    {c.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <label className="ml-auto inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-soft">
+              <span className="text-muted-foreground">Sort</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="cursor-pointer bg-transparent text-xs font-semibold text-primary-deep outline-none"
+              >
+                {sortOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
