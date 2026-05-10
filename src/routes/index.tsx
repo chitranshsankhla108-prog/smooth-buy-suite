@@ -31,8 +31,22 @@ function HomePage() {
   const { data: categories = [] } = useQuery(categoriesQueryOptions());
   const { isDealer } = useAuth();
   const [active, setActive] = useState<string>("All");
+  type SortKey = "featured" | "price-asc" | "price-desc" | "newest";
+  const [sort, setSort] = useState<SortKey>("featured");
 
-  const visible = active === "All" ? products : products.filter((p) => p.category === active);
+  const filtered = active === "All" ? products : products.filter((p) => p.category === active);
+  const effectivePrice = (p: typeof products[number]) =>
+    isDealer && p.dealerPrice != null ? p.dealerPrice : p.retailPrice;
+  const visible = [...filtered].sort((a, b) => {
+    if (sort === "price-asc") return effectivePrice(a) - effectivePrice(b);
+    if (sort === "price-desc") return effectivePrice(b) - effectivePrice(a);
+    if (sort === "newest") {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return tb - ta;
+    }
+    return 0;
+  });
   const counts = products.reduce<Record<string, number>>((acc, p) => {
     acc[p.category] = (acc[p.category] ?? 0) + 1;
     return acc;
@@ -40,6 +54,12 @@ function HomePage() {
   const filters: { name: string; count: number }[] = [
     { name: "All", count: products.length },
     ...categories.map((c) => ({ name: c.name, count: counts[c.name] ?? 0 })),
+  ];
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: "featured", label: "Featured" },
+    { key: "price-asc", label: "Price: Low to High" },
+    { key: "price-desc", label: "Price: High to Low" },
+    { key: "newest", label: "Newest" },
   ];
 
   return (
