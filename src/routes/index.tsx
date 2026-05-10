@@ -31,8 +31,22 @@ function HomePage() {
   const { data: categories = [] } = useQuery(categoriesQueryOptions());
   const { isDealer } = useAuth();
   const [active, setActive] = useState<string>("All");
+  type SortKey = "featured" | "price-asc" | "price-desc" | "newest";
+  const [sort, setSort] = useState<SortKey>("featured");
 
-  const visible = active === "All" ? products : products.filter((p) => p.category === active);
+  const filtered = active === "All" ? products : products.filter((p) => p.category === active);
+  const effectivePrice = (p: typeof products[number]) =>
+    isDealer && p.dealerPrice != null ? p.dealerPrice : p.retailPrice;
+  const visible = [...filtered].sort((a, b) => {
+    if (sort === "price-asc") return effectivePrice(a) - effectivePrice(b);
+    if (sort === "price-desc") return effectivePrice(b) - effectivePrice(a);
+    if (sort === "newest") {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return tb - ta;
+    }
+    return 0;
+  });
   const counts = products.reduce<Record<string, number>>((acc, p) => {
     acc[p.category] = (acc[p.category] ?? 0) + 1;
     return acc;
@@ -40,6 +54,12 @@ function HomePage() {
   const filters: { name: string; count: number }[] = [
     { name: "All", count: products.length },
     ...categories.map((c) => ({ name: c.name, count: counts[c.name] ?? 0 })),
+  ];
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: "featured", label: "Featured" },
+    { key: "price-asc", label: "Price: Low to High" },
+    { key: "price-desc", label: "Price: High to Low" },
+    { key: "newest", label: "Newest" },
   ];
 
   return (
@@ -131,31 +151,47 @@ function HomePage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
-            {filters.map((c) => (
-              <button
-                key={c.name}
-                onClick={() => setActive(c.name)}
-                className={cn(
-                  "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-                  active === c.name
-                    ? "bg-gradient-primary text-primary-foreground shadow-button"
-                    : "text-primary-deep hover:bg-primary-soft",
-                )}
-              >
-                {c.name}
-                <span
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
+              {filters.map((c) => (
+                <button
+                  key={c.name}
+                  onClick={() => setActive(c.name)}
                   className={cn(
-                    "ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
                     active === c.name
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-primary-soft text-primary-deep",
+                      ? "bg-gradient-primary text-primary-foreground shadow-button"
+                      : "text-primary-deep hover:bg-primary-soft",
                   )}
                 >
-                  {c.count}
-                </span>
-              </button>
-            ))}
+                  {c.name}
+                  <span
+                    className={cn(
+                      "ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                      active === c.name
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-primary-soft text-primary-deep",
+                    )}
+                  >
+                    {c.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <label className="ml-auto inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-soft">
+              <span className="text-muted-foreground">Sort</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="cursor-pointer bg-transparent text-xs font-semibold text-primary-deep outline-none"
+              >
+                {sortOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
