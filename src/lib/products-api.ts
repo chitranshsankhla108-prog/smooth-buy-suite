@@ -55,6 +55,7 @@ export const mapDBProduct = (p: DBProduct | VisibleProduct): Product => ({
   fastDelivery: !!p.fast_delivery,
   crossSellIds: p.cross_sell_ids ?? [],
   active: p.active,
+  createdAt: (p as { created_at?: string | null }).created_at ?? null,
 });
 
 export const formatINR = (n: number) =>
