@@ -33,7 +33,14 @@ function HomePage() {
   const [active, setActive] = useState<string>("All");
 
   const visible = active === "All" ? products : products.filter((p) => p.category === active);
-  const filters = ["All", ...categories.map((c) => c.name)];
+  const counts = products.reduce<Record<string, number>>((acc, p) => {
+    acc[p.category] = (acc[p.category] ?? 0) + 1;
+    return acc;
+  }, {});
+  const filters: { name: string; count: number }[] = [
+    { name: "All", count: products.length },
+    ...categories.map((c) => ({ name: c.name, count: counts[c.name] ?? 0 })),
+  ];
 
   return (
     <main>
@@ -127,16 +134,26 @@ function HomePage() {
           <div className="flex flex-wrap gap-1.5 rounded-2xl bg-primary-soft/60 p-1.5">
             {filters.map((c) => (
               <button
-                key={c}
-                onClick={() => setActive(c)}
+                key={c.name}
+                onClick={() => setActive(c.name)}
                 className={cn(
                   "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
-                  active === c
+                  active === c.name
                     ? "bg-gradient-primary text-primary-foreground shadow-button"
                     : "text-primary-deep hover:bg-primary-soft",
                 )}
               >
-                {c}
+                {c.name}
+                <span
+                  className={cn(
+                    "ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                    active === c.name
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-primary-soft text-primary-deep",
+                  )}
+                >
+                  {c.count}
+                </span>
               </button>
             ))}
           </div>
